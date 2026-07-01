@@ -7,6 +7,7 @@ import { UsersService } from '../users/users.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { PasswordResetMailer } from './password-reset-mailer.service';
 import { JwtPayload } from './types/jwt-payload.type';
 
@@ -20,6 +21,7 @@ type PasswordResetJwtPayload = {
 
 const FORGOT_PASSWORD_MESSAGE =
   'If an account exists, a password reset link has been sent.';
+const RESET_PASSWORD_MESSAGE = 'Password has been reset successfully.';
 
 @Injectable()
 export class AuthService {
@@ -108,6 +110,20 @@ export class AuthService {
     };
   }
 
+  async resetPassword(resetPasswordDto: ResetPasswordDto) {
+    const payload = await this.verifyPasswordResetToken(resetPasswordDto.token);
+    const passwordHash = await bcrypt.hash(
+      resetPasswordDto.password,
+      PASSWORD_SALT_ROUNDS,
+    );
+
+    await this.usersService.updatePassword(payload.sub, passwordHash);
+
+    return {
+      message: RESET_PASSWORD_MESSAGE,
+    };
+  }
+
   private signAccessToken(payload: JwtPayload): Promise<string> {
     const expiresIn = (this.configService.get<string>('JWT_EXPIRES_IN') ??
       '30m') as JwtSignOptions['expiresIn'];
@@ -135,5 +151,24 @@ export class AuthService {
     resetUrl.searchParams.set('token', token);
 
     return resetUrl.toString();
+  }
+
+  private async verifyPasswordResetToken(
+    token: string,
+  ): Promise<PasswordResetJwtPayload> {
+    try {
+      const payload =
+        await this.jwtService.verifyAsync<PasswordResetJwtPayload>(token, {
+          secret: this.configService.getOrThrow<string>('JWT_SECRET'),
+        });
+
+      if (payload.type !== 'password-reset') {
+        throw new UnauthorizedException('Invalid password reset token.');
+      }
+
+      return payload;
+    } catch {
+      throw new UnauthorizedException('Invalid password reset token.');
+    }
   }
 }

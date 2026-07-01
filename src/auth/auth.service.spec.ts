@@ -1,4 +1,5 @@
 import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
 
 import { UsersService } from '../users/users.service';
 import { AuthService } from './auth.service';
@@ -54,5 +55,52 @@ describe('AuthService forgot password', () => {
       email: 'driver@example.com',
       resetLink: 'http://localhost:3000/reset-password?token=reset-token',
     });
+  });
+
+  it('updates the password when the reset token is valid', async () => {
+    jest.spyOn(bcrypt, 'hash').mockResolvedValue('new-password-hash' as never);
+
+    const configService = {
+      get: jest.fn(),
+      getOrThrow: jest.fn((key: string) => {
+        if (key === 'JWT_SECRET') return 'secret';
+        throw new Error(`Missing ${key}`);
+      }),
+    };
+    const verifyAsync = jest.fn().mockResolvedValue({
+      sub: 'user-1',
+      email: 'driver@example.com',
+      type: 'password-reset',
+    });
+    const jwtService = {
+      verifyAsync,
+    } as Pick<JwtService, 'verifyAsync'>;
+    const updatePassword = jest.fn().mockResolvedValue(undefined);
+    const usersService = {
+      updatePassword,
+    } as Pick<UsersService, 'updatePassword'>;
+    const passwordResetMailer = {
+      sendPasswordReset: jest.fn(),
+    } as Pick<PasswordResetMailer, 'sendPasswordReset'>;
+    const service = new AuthService(
+      configService as never,
+      jwtService as JwtService,
+      usersService as UsersService,
+      passwordResetMailer as PasswordResetMailer,
+    );
+
+    await expect(
+      service.resetPassword({
+        token: 'reset-token',
+        password: 'newpassword123',
+      }),
+    ).resolves.toEqual({
+      message: 'Password has been reset successfully.',
+    });
+
+    expect(verifyAsync).toHaveBeenCalledWith('reset-token', {
+      secret: 'secret',
+    });
+    expect(updatePassword).toHaveBeenCalledWith('user-1', 'new-password-hash');
   });
 });

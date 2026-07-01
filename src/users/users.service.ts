@@ -81,6 +81,17 @@ export class UsersService {
     return result.rows.map((user) => this.toSafeUser(user));
   }
 
+  async updatePassword(id: string, passwordHash: string): Promise<void> {
+    await this.databaseService.query(
+      `
+        UPDATE users
+        SET password_hash = $1, updated_at = NOW()
+        WHERE id = $2
+      `,
+      [passwordHash, id],
+    );
+  }
+
   toSafeUser(user: UserRecord): SafeUser {
     return {
       id: user.id,
