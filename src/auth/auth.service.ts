@@ -8,14 +8,9 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { PasswordResetMailer } from './password-reset-mailer.service';
+import { JwtPayload } from './types/jwt-payload.type';
 
 const PASSWORD_SALT_ROUNDS = 12;
-
-type JwtPayload = {
-  sub: string;
-  email: string;
-  role: string;
-};
 
 type PasswordResetJwtPayload = {
   sub: string;
