@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 
 import { UsersService } from '../users/users.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -17,6 +18,11 @@ type PasswordResetJwtPayload = {
   sub: string;
   email: string;
   type: 'password-reset';
+};
+
+type SocialProfile = {
+  email?: string;
+  name?: string;
 };
 
 const FORGOT_PASSWORD_MESSAGE =
@@ -124,6 +130,30 @@ export class AuthService {
     };
   }
 
+  async loginWithSocialProfile(profile: SocialProfile) {
+    if (!profile.email) {
+      throw new UnauthorizedException('Social account email is required.');
+    }
+
+    const existingUser = await this.usersService.findByEmail(profile.email);
+    const user =
+      existingUser === null
+        ? await this.createSocialUser({
+            email: profile.email,
+            name: profile.name,
+          })
+        : this.usersService.toSafeUser(existingUser);
+
+    return {
+      accessToken: await this.signAccessToken({
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+      }),
+      user,
+    };
+  }
+
   private signAccessToken(payload: JwtPayload): Promise<string> {
     const expiresIn = (this.configService.get<string>('JWT_EXPIRES_IN') ??
       '30m') as JwtSignOptions['expiresIn'];
@@ -170,5 +200,15 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException('Invalid password reset token.');
     }
+  }
+
+  private async createSocialUser(profile: SocialProfile & { email: string }) {
+    const passwordHash = await bcrypt.hash(randomUUID(), PASSWORD_SALT_ROUNDS);
+
+    return this.usersService.create({
+      email: profile.email,
+      name: profile.name ?? profile.email,
+      passwordHash,
+    });
   }
 }

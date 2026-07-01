@@ -103,4 +103,62 @@ describe('AuthService forgot password', () => {
     });
     expect(updatePassword).toHaveBeenCalledWith('user-1', 'new-password-hash');
   });
+
+  it('creates a local account for a new social login', async () => {
+    jest.spyOn(bcrypt, 'hash').mockResolvedValue('social-password-hash' as never);
+
+    const configService = {
+      get: jest.fn((key: string) => {
+        if (key === 'JWT_EXPIRES_IN') return '30m';
+        return undefined;
+      }),
+      getOrThrow: jest.fn((key: string) => {
+        if (key === 'JWT_SECRET') return 'secret';
+        throw new Error(`Missing ${key}`);
+      }),
+    };
+    const signAsync = jest.fn().mockResolvedValue('access-token');
+    const jwtService = {
+      signAsync,
+    } as Pick<JwtService, 'signAsync'>;
+    const findByEmail = jest.fn().mockResolvedValue(null);
+    const create = jest.fn().mockResolvedValue({
+      id: 'user-1',
+      email: 'driver@example.com',
+      name: 'Driver',
+      role: 'user',
+    });
+    const usersService = {
+      findByEmail,
+      create,
+    } as Partial<UsersService>;
+    const passwordResetMailer = {
+      sendPasswordReset: jest.fn(),
+    } as Pick<PasswordResetMailer, 'sendPasswordReset'>;
+    const service = new AuthService(
+      configService as never,
+      jwtService as JwtService,
+      usersService as UsersService,
+      passwordResetMailer as PasswordResetMailer,
+    );
+
+    await expect(
+      service.loginWithSocialProfile({
+        email: 'driver@example.com',
+        name: 'Driver',
+      }),
+    ).resolves.toMatchObject({
+      accessToken: 'access-token',
+      user: {
+        email: 'driver@example.com',
+        name: 'Driver',
+      },
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      email: 'driver@example.com',
+      name: 'Driver',
+      passwordHash: 'social-password-hash',
+    });
+  });
 });
