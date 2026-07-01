@@ -6,14 +6,9 @@ import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { JwtPayload } from './types/jwt-payload.type';
 
 const PASSWORD_SALT_ROUNDS = 12;
-
-type JwtPayload = {
-  sub: string;
-  email: string;
-  role: string;
-};
 
 @Injectable()
 export class AuthService {
