@@ -12,7 +12,9 @@
     "start:prod": "node dist/main",
     "db:migrate": "ts-node -r tsconfig-paths/register scripts/migrate.ts",
     "lint": "eslint \"{src,test}/**/*.ts\" --fix",
+    "lint:check": "eslint \"{src,test}/**/*.ts\"",
     "test": "jest",
+    "test:ci": "jest --passWithNoTests",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage"
   },
