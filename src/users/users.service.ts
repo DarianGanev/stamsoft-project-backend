@@ -59,6 +59,28 @@ export class UsersService {
     return result.rows[0] ?? null;
   }
 
+  async countUsers(): Promise<number> {
+    const result = await this.databaseService.query<{ count: string }>(
+      'SELECT COUNT(*)::text AS count FROM users',
+    );
+
+    return Number(result.rows[0]?.count ?? 0);
+  }
+
+  async findRecentUsers(limit = 5): Promise<SafeUser[]> {
+    const result = await this.databaseService.query<UserRecord>(
+      `
+        SELECT id, email, name, password_hash, role, created_at, updated_at
+        FROM users
+        ORDER BY created_at DESC
+        LIMIT $1
+      `,
+      [limit],
+    );
+
+    return result.rows.map((user) => this.toSafeUser(user));
+  }
+
   toSafeUser(user: UserRecord): SafeUser {
     return {
       id: user.id,
