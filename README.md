@@ -1,1 +1,0 @@
-# stamsoft-project-backend
