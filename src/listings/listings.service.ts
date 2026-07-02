@@ -77,6 +77,8 @@ export class ListingsService {
   }
 
   async create(userId: string, input: CreateListingDto): Promise<Listing> {
+    await this.validateBrandModelPair(input.brandId, input.modelId);
+
     const result = await this.databaseService.query<{ id: string }>(
       `
         INSERT INTO listings (
@@ -119,7 +121,13 @@ export class ListingsService {
     userId: string,
     input: UpdateListingDto,
   ): Promise<Listing> {
-    await this.ensureOwner(id, userId);
+    const listing = await this.ensureOwner(id, userId);
+    const brandId = input.brandId ?? listing.brand_id;
+    const modelId = input.modelId ?? listing.model_id;
+
+    if (input.brandId !== undefined || input.modelId !== undefined) {
+      await this.validateBrandModelPair(brandId, modelId);
+    }
 
     const updates: string[] = [];
     const params: unknown[] = [];
@@ -227,8 +235,12 @@ export class ListingsService {
   }
 
   private async ensureOwner(id: string, userId: string) {
-    const result = await this.databaseService.query<{ user_id: string }>(
-      'SELECT user_id FROM listings WHERE id = $1',
+    const result = await this.databaseService.query<{
+      user_id: string;
+      brand_id: string;
+      model_id: string;
+    }>(
+      'SELECT user_id, brand_id, model_id FROM listings WHERE id = $1',
       [id],
     );
     const listing = result.rows[0];
@@ -239,6 +251,34 @@ export class ListingsService {
 
     if (listing.user_id !== userId) {
       throw new ForbiddenException('You can only modify your own listings.');
+    }
+
+    return listing;
+  }
+
+  private async validateBrandModelPair(brandId: string, modelId: string) {
+    const result = await this.databaseService.query<{
+      brand_id: string;
+      model_id: string | null;
+    }>(
+      `
+        SELECT b.id AS brand_id, m.id AS model_id
+        FROM brands b
+        LEFT JOIN models m ON m.brand_id = b.id AND m.id = $2
+        WHERE b.id = $1
+      `,
+      [brandId, modelId],
+    );
+    const pair = result.rows[0];
+
+    if (!pair) {
+      throw new BadRequestException('Selected brand does not exist.');
+    }
+
+    if (!pair.model_id) {
+      throw new BadRequestException(
+        'Selected model does not exist for the selected brand.',
+      );
     }
   }
 
