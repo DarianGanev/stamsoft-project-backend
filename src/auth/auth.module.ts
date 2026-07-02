@@ -13,6 +13,6 @@ import { GoogleStrategy } from './strategies/google.strategy';
   imports: [UsersModule, JwtModule.register({}), PassportModule],
   controllers: [AuthController],
   providers: [AuthService, JwtAuthGuard, PasswordResetMailer, GoogleStrategy],
-  exports: [JwtAuthGuard],
+  exports: [JwtAuthGuard, JwtModule, UsersModule],
 })
 export class AuthModule {}
