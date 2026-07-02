@@ -14,6 +14,7 @@ export interface ListingImage {
   url: string;
   altText: string | null;
   sortOrder: number;
+  isPrimary: boolean;
 }
 
 export interface Listing {

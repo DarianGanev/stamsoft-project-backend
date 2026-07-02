@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -8,11 +9,21 @@ import { DatabaseService } from '../database/database.service';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { ListListingsQueryDto } from './dto/list-listings-query.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
+import { UploadListingImagesDto } from './dto/upload-listing-images.dto';
 import { Listing, ListingRecord } from './listing.types';
+import { LocalImageStorageService } from './local-image-storage.service';
+
+const MAX_IMAGES_PER_LISTING = 20;
+const MAX_IMAGES_PER_UPLOAD = 10;
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 @Injectable()
 export class ListingsService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly imageStorageService: LocalImageStorageService,
+  ) {}
 
   async list(query: ListListingsQueryDto) {
     const page = query.page ?? 1;
@@ -150,6 +161,61 @@ export class ListingsService {
     return { message: 'Listing deleted successfully.' };
   }
 
+  async uploadImages(
+    listingId: string,
+    userId: string,
+    files: Express.Multer.File[],
+    options: UploadListingImagesDto,
+  ): Promise<Listing> {
+    await this.ensureOwner(listingId, userId);
+    this.validateFiles(files);
+
+    const existingImages = await this.databaseService.query<{ count: string }>(
+      'SELECT COUNT(*)::int AS count FROM images WHERE listing_id = $1',
+      [listingId],
+    );
+    const existingCount = Number(existingImages.rows[0]?.count ?? 0);
+
+    if (existingCount + files.length > MAX_IMAGES_PER_LISTING) {
+      throw new BadRequestException(
+        `A listing can have up to ${MAX_IMAGES_PER_LISTING} images.`,
+      );
+    }
+
+    const shouldSetPrimary =
+      options.firstImageIsPrimary === true || existingCount === 0;
+
+    if (shouldSetPrimary) {
+      await this.databaseService.query(
+        'UPDATE images SET is_primary = FALSE WHERE listing_id = $1',
+        [listingId],
+      );
+    }
+
+    for (const [index, file] of files.entries()) {
+      const imageUrl = await this.imageStorageService.save(file);
+      const isPrimary = shouldSetPrimary && index === 0;
+
+      await this.databaseService.query(
+        `
+          INSERT INTO images (
+            listing_id, image_url, alt_text, sort_order, is_primary
+          )
+          VALUES ($1, $2, $3, $4, $5)
+        `,
+        [
+          listingId,
+          imageUrl,
+          file.originalname,
+          existingCount + index,
+          isPrimary,
+        ],
+      );
+    }
+
+    return this.findOwned(listingId, userId);
+  }
+
   private async findOwned(id: string, userId: string): Promise<Listing> {
     const listing = await this.findById(id, 'l.user_id = $2', [userId]);
 
@@ -220,7 +286,7 @@ export class ListingsService {
           SELECT i.image_url
           FROM images i
           WHERE i.listing_id = l.id
-          ORDER BY i.sort_order ASC, i.created_at ASC
+          ORDER BY i.is_primary DESC, i.sort_order ASC, i.created_at ASC
           LIMIT 1
         ) AS primary_image_url,
         COALESCE(
@@ -229,9 +295,10 @@ export class ListingsService {
               'id', img.id,
               'url', img.image_url,
               'altText', img.alt_text,
-              'sortOrder', img.sort_order
+              'sortOrder', img.sort_order,
+              'isPrimary', img.is_primary
             )
-            ORDER BY img.sort_order ASC, img.created_at ASC
+            ORDER BY img.is_primary DESC, img.sort_order ASC, img.created_at ASC
           ) FILTER (WHERE img.id IS NOT NULL),
           '[]'
         ) AS images
@@ -297,5 +364,29 @@ export class ListingsService {
 
     params.push(value);
     updates.push(`${column} = $${params.length}`);
+  }
+
+  private validateFiles(files: Express.Multer.File[]) {
+    if (!files.length) {
+      throw new BadRequestException('At least one image is required.');
+    }
+
+    if (files.length > MAX_IMAGES_PER_UPLOAD) {
+      throw new BadRequestException(
+        `Upload up to ${MAX_IMAGES_PER_UPLOAD} images at once.`,
+      );
+    }
+
+    for (const file of files) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
+        throw new BadRequestException(
+          'Only JPEG, PNG, and WEBP images are allowed.',
+        );
+      }
+
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        throw new BadRequestException('Each image must be 5MB or smaller.');
+      }
+    }
   }
 }

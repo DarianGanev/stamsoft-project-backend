@@ -8,8 +8,11 @@ import {
   Post,
   Query,
   Req,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 
 import {
   AuthenticatedRequest,
@@ -18,6 +21,7 @@ import {
 import { CreateListingDto } from './dto/create-listing.dto';
 import { ListListingsQueryDto } from './dto/list-listings-query.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
+import { UploadListingImagesDto } from './dto/upload-listing-images.dto';
 import { ListingsService } from './listings.service';
 
 @Controller('listings')
@@ -57,5 +61,22 @@ export class ListingsController {
   @Delete(':id')
   remove(@Param('id') id: string, @Req() request: AuthenticatedRequest) {
     return this.listingsService.remove(id, request.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/images')
+  @UseInterceptors(FilesInterceptor('images'))
+  uploadImages(
+    @Param('id') id: string,
+    @Req() request: AuthenticatedRequest,
+    @UploadedFiles() files: Express.Multer.File[] = [],
+    @Body() uploadListingImagesDto: UploadListingImagesDto,
+  ) {
+    return this.listingsService.uploadImages(
+      id,
+      request.user.id,
+      files,
+      uploadListingImagesDto,
+    );
   }
 }
