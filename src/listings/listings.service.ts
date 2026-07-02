@@ -4,13 +4,18 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
 
-import { DatabaseService } from '../database/database.service';
+import { BrandEntity } from '../brands/brand.entity';
+import { VehicleModelEntity } from '../brands/vehicle-model.entity';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { ListListingsQueryDto } from './dto/list-listings-query.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
 import { UploadListingImagesDto } from './dto/upload-listing-images.dto';
-import { Listing, ListingRecord } from './listing.types';
+import { ImageEntity } from './image.entity';
+import { ListingEntity } from './listing.entity';
+import { Listing, ListingImage } from './listing.types';
 import { LocalImageStorageService } from './local-image-storage.service';
 
 const MAX_IMAGES_PER_LISTING = 20;
@@ -21,7 +26,14 @@ const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 @Injectable()
 export class ListingsService {
   constructor(
-    private readonly databaseService: DatabaseService,
+    @InjectRepository(ListingEntity)
+    private readonly listingsRepository: Repository<ListingEntity>,
+    @InjectRepository(ImageEntity)
+    private readonly imagesRepository: Repository<ImageEntity>,
+    @InjectRepository(BrandEntity)
+    private readonly brandsRepository: Repository<BrandEntity>,
+    @InjectRepository(VehicleModelEntity)
+    private readonly modelsRepository: Repository<VehicleModelEntity>,
     private readonly imageStorageService: LocalImageStorageService,
   ) {}
 
@@ -29,91 +41,89 @@ export class ListingsService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const offset = (page - 1) * limit;
-    const filters: string[] = ["l.status = 'published'"];
-    const params: unknown[] = [];
+    const queryBuilder = this.createListingQuery()
+      .where('listing.status = :status', { status: 'published' })
+      .skip(offset)
+      .take(limit);
 
-    this.addFilter(filters, params, 'l.brand_id =', query.brandId);
-    this.addFilter(filters, params, 'l.model_id =', query.modelId);
-    this.addFilter(filters, params, 'l.fuel =', query.fuel);
-    this.addFilter(filters, params, 'l.transmission =', query.transmission);
-    this.addFilter(filters, params, 'l.location ILIKE', query.location, true);
-    this.addFilter(filters, params, 'l.price >=', query.minPrice);
-    this.addFilter(filters, params, 'l.price <=', query.maxPrice);
-    this.addFilter(filters, params, 'l.year >=', query.minYear);
-    this.addFilter(filters, params, 'l.year <=', query.maxYear);
+    this.addFilter(queryBuilder, 'listing.brandId = :brandId', 'brandId', query.brandId);
+    this.addFilter(queryBuilder, 'listing.modelId = :modelId', 'modelId', query.modelId);
+    this.addFilter(queryBuilder, 'listing.fuel = :fuel', 'fuel', query.fuel);
+    this.addFilter(
+      queryBuilder,
+      'listing.transmission = :transmission',
+      'transmission',
+      query.transmission,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.location ILIKE :location',
+      'location',
+      query.location ? `%${query.location}%` : undefined,
+    );
+    this.addFilter(queryBuilder, 'listing.price >= :minPrice', 'minPrice', query.minPrice);
+    this.addFilter(queryBuilder, 'listing.price <= :maxPrice', 'maxPrice', query.maxPrice);
+    this.addFilter(queryBuilder, 'listing.year >= :minYear', 'minYear', query.minYear);
+    this.addFilter(queryBuilder, 'listing.year <= :maxYear', 'maxYear', query.maxYear);
+    this.addFilter(
+      queryBuilder,
+      'listing.mileageKm <= :maxMileage',
+      'maxMileage',
+      query.maxMileage,
+    );
+    this.addSearch(queryBuilder, query.search);
+    this.applySort(queryBuilder, query.sort);
 
-    const whereClause = filters.join(' AND ');
-    const totalResult = await this.databaseService.query<{ count: string }>(
-      `SELECT COUNT(*)::int AS count FROM listings l WHERE ${whereClause}`,
-      params,
-    );
-    const result = await this.databaseService.query<ListingRecord>(
-      `${this.listingSelectSql()}
-       WHERE ${whereClause}
-       GROUP BY l.id, b.name, m.name
-       ORDER BY l.created_at DESC
-       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-      [...params, limit, offset],
-    );
+    const [listings, total] = await queryBuilder.getManyAndCount();
 
     return {
-      data: result.rows.map((row) => this.toListing(row)),
+      data: listings.map((listing) => this.toListing(listing)),
       meta: {
         page,
         limit,
-        total: Number(totalResult.rows[0]?.count ?? 0),
+        total,
       },
     };
   }
 
   async findPublished(id: string): Promise<Listing> {
-    const listing = await this.findById(id, "l.status = 'published'");
+    const listing = await this.createListingQuery()
+      .where('listing.id = :id', { id })
+      .andWhere('listing.status = :status', { status: 'published' })
+      .getOne();
 
     if (!listing) {
       throw new NotFoundException('Listing not found.');
     }
 
-    return listing;
+    return this.toListing(listing);
   }
 
   async create(userId: string, input: CreateListingDto): Promise<Listing> {
     await this.validateBrandModelPair(input.brandId, input.modelId);
 
-    const result = await this.databaseService.query<{ id: string }>(
-      `
-        INSERT INTO listings (
-          user_id, brand_id, model_id, title, description, year, mileage_km,
-          fuel, transmission, location, contact_name, contact_phone,
-          contact_email, price, currency, status
-        )
-        VALUES (
-          $1, $2, $3, $4, $5, $6, $7,
-          $8, $9, $10, $11, $12,
-          $13, $14, $15, $16
-        )
-        RETURNING id
-      `,
-      [
+    const listing = await this.listingsRepository.save(
+      this.listingsRepository.create({
         userId,
-        input.brandId,
-        input.modelId,
-        input.title,
-        input.description ?? null,
-        input.year ?? null,
-        input.mileageKm ?? null,
-        input.fuel ?? null,
-        input.transmission ?? null,
-        input.location ?? null,
-        input.contactName ?? null,
-        input.contactPhone ?? null,
-        input.contactEmail ?? null,
-        input.price,
-        input.currency ?? 'BGN',
-        input.status ?? 'published',
-      ],
+        brandId: input.brandId,
+        modelId: input.modelId,
+        title: input.title,
+        description: input.description ?? null,
+        year: input.year ?? null,
+        mileageKm: input.mileageKm ?? null,
+        fuel: input.fuel ?? null,
+        transmission: input.transmission ?? null,
+        location: input.location ?? null,
+        contactName: input.contactName ?? null,
+        contactPhone: input.contactPhone ?? null,
+        contactEmail: input.contactEmail ?? null,
+        price: String(input.price),
+        currency: input.currency ?? 'BGN',
+        status: input.status ?? 'published',
+      }),
     );
 
-    return this.findOwned(result.rows[0].id, userId);
+    return this.findOwned(listing.id, userId);
   }
 
   async update(
@@ -122,41 +132,16 @@ export class ListingsService {
     input: UpdateListingDto,
   ): Promise<Listing> {
     const listing = await this.ensureOwner(id, userId);
-    const brandId = input.brandId ?? listing.brand_id;
-    const modelId = input.modelId ?? listing.model_id;
+    const brandId = input.brandId ?? listing.brandId;
+    const modelId = input.modelId ?? listing.modelId;
+    const updates = this.buildListingUpdates(input);
 
     if (input.brandId !== undefined || input.modelId !== undefined) {
       await this.validateBrandModelPair(brandId, modelId);
     }
 
-    const updates: string[] = [];
-    const params: unknown[] = [];
-
-    this.addUpdate(updates, params, 'brand_id', input.brandId);
-    this.addUpdate(updates, params, 'model_id', input.modelId);
-    this.addUpdate(updates, params, 'title', input.title);
-    this.addUpdate(updates, params, 'description', input.description);
-    this.addUpdate(updates, params, 'year', input.year);
-    this.addUpdate(updates, params, 'mileage_km', input.mileageKm);
-    this.addUpdate(updates, params, 'fuel', input.fuel);
-    this.addUpdate(updates, params, 'transmission', input.transmission);
-    this.addUpdate(updates, params, 'location', input.location);
-    this.addUpdate(updates, params, 'contact_name', input.contactName);
-    this.addUpdate(updates, params, 'contact_phone', input.contactPhone);
-    this.addUpdate(updates, params, 'contact_email', input.contactEmail);
-    this.addUpdate(updates, params, 'price', input.price);
-    this.addUpdate(updates, params, 'currency', input.currency);
-    this.addUpdate(updates, params, 'status', input.status);
-
-    if (updates.length > 0) {
-      await this.databaseService.query(
-        `
-          UPDATE listings
-          SET ${updates.join(', ')}, updated_at = NOW()
-          WHERE id = $${params.length + 1}
-        `,
-        [...params, id],
-      );
+    if (Object.keys(updates).length > 0) {
+      await this.listingsRepository.update(id, updates);
     }
 
     return this.findOwned(id, userId);
@@ -164,7 +149,7 @@ export class ListingsService {
 
   async remove(id: string, userId: string) {
     await this.ensureOwner(id, userId);
-    await this.databaseService.query('DELETE FROM listings WHERE id = $1', [id]);
+    await this.listingsRepository.delete(id);
 
     return { message: 'Listing deleted successfully.' };
   }
@@ -178,11 +163,9 @@ export class ListingsService {
     await this.ensureOwner(listingId, userId);
     this.validateFiles(files);
 
-    const existingImages = await this.databaseService.query<{ count: string }>(
-      'SELECT COUNT(*)::int AS count FROM images WHERE listing_id = $1',
-      [listingId],
-    );
-    const existingCount = Number(existingImages.rows[0]?.count ?? 0);
+    const existingCount = await this.imagesRepository.count({
+      where: { listingId },
+    });
 
     if (existingCount + files.length > MAX_IMAGES_PER_LISTING) {
       throw new BadRequestException(
@@ -194,30 +177,20 @@ export class ListingsService {
       options.firstImageIsPrimary === true || existingCount === 0;
 
     if (shouldSetPrimary) {
-      await this.databaseService.query(
-        'UPDATE images SET is_primary = FALSE WHERE listing_id = $1',
-        [listingId],
-      );
+      await this.imagesRepository.update({ listingId }, { isPrimary: false });
     }
 
     for (const [index, file] of files.entries()) {
       const imageUrl = await this.imageStorageService.save(file);
-      const isPrimary = shouldSetPrimary && index === 0;
 
-      await this.databaseService.query(
-        `
-          INSERT INTO images (
-            listing_id, image_url, alt_text, sort_order, is_primary
-          )
-          VALUES ($1, $2, $3, $4, $5)
-        `,
-        [
+      await this.imagesRepository.save(
+        this.imagesRepository.create({
           listingId,
           imageUrl,
-          file.originalname,
-          existingCount + index,
-          isPrimary,
-        ],
+          altText: file.originalname,
+          sortOrder: existingCount + index,
+          isPrimary: shouldSetPrimary && index === 0,
+        }),
       );
     }
 
@@ -225,31 +198,26 @@ export class ListingsService {
   }
 
   private async findOwned(id: string, userId: string): Promise<Listing> {
-    const listing = await this.findById(id, 'l.user_id = $2', [userId]);
+    const listing = await this.createListingQuery()
+      .where('listing.id = :id', { id })
+      .andWhere('listing.userId = :userId', { userId })
+      .getOne();
 
     if (!listing) {
       throw new NotFoundException('Listing not found.');
     }
 
-    return listing;
+    return this.toListing(listing);
   }
 
-  private async ensureOwner(id: string, userId: string) {
-    const result = await this.databaseService.query<{
-      user_id: string;
-      brand_id: string;
-      model_id: string;
-    }>(
-      'SELECT user_id, brand_id, model_id FROM listings WHERE id = $1',
-      [id],
-    );
-    const listing = result.rows[0];
+  private async ensureOwner(id: string, userId: string): Promise<ListingEntity> {
+    const listing = await this.listingsRepository.findOne({ where: { id } });
 
     if (!listing) {
       throw new NotFoundException('Listing not found.');
     }
 
-    if (listing.user_id !== userId) {
+    if (listing.userId !== userId) {
       throw new ForbiddenException('You can only modify your own listings.');
     }
 
@@ -257,153 +225,181 @@ export class ListingsService {
   }
 
   private async validateBrandModelPair(brandId: string, modelId: string) {
-    const result = await this.databaseService.query<{
-      brand_id: string;
-      model_id: string | null;
-    }>(
-      `
-        SELECT b.id AS brand_id, m.id AS model_id
-        FROM brands b
-        LEFT JOIN models m ON m.brand_id = b.id AND m.id = $2
-        WHERE b.id = $1
-      `,
-      [brandId, modelId],
-    );
-    const pair = result.rows[0];
+    const brandExists = await this.brandsRepository.exists({
+      where: { id: brandId },
+    });
 
-    if (!pair) {
+    if (!brandExists) {
       throw new BadRequestException('Selected brand does not exist.');
     }
 
-    if (!pair.model_id) {
+    const modelExists = await this.modelsRepository.exists({
+      where: { brandId, id: modelId },
+    });
+
+    if (!modelExists) {
       throw new BadRequestException(
         'Selected model does not exist for the selected brand.',
       );
     }
   }
 
-  private async findById(
-    id: string,
-    extraCondition: string,
-    extraParams: unknown[] = [],
-  ): Promise<Listing | null> {
-    const result = await this.databaseService.query<ListingRecord>(
-      `${this.listingSelectSql()}
-       WHERE l.id = $1 AND ${extraCondition}
-       GROUP BY l.id, b.name, m.name`,
-      [id, ...extraParams],
-    );
-    const row = result.rows[0];
-
-    return row ? this.toListing(row) : null;
-  }
-
-  private listingSelectSql() {
-    return `
-      SELECT
-        l.id,
-        l.user_id,
-        l.brand_id,
-        b.name AS brand_name,
-        l.model_id,
-        m.name AS model_name,
-        l.title,
-        l.description,
-        l.year,
-        l.mileage_km,
-        l.fuel,
-        l.transmission,
-        l.location,
-        l.contact_name,
-        l.contact_phone,
-        l.contact_email,
-        l.price,
-        l.currency,
-        l.status,
-        l.created_at,
-        l.updated_at,
-        (
-          SELECT i.image_url
-          FROM images i
-          WHERE i.listing_id = l.id
-          ORDER BY i.is_primary DESC, i.sort_order ASC, i.created_at ASC
-          LIMIT 1
-        ) AS primary_image_url,
-        COALESCE(
-          json_agg(
-            json_build_object(
-              'id', img.id,
-              'url', img.image_url,
-              'altText', img.alt_text,
-              'sortOrder', img.sort_order,
-              'isPrimary', img.is_primary
-            )
-            ORDER BY img.is_primary DESC, img.sort_order ASC, img.created_at ASC
-          ) FILTER (WHERE img.id IS NOT NULL),
-          '[]'
-        ) AS images
-      FROM listings l
-      JOIN brands b ON b.id = l.brand_id
-      JOIN models m ON m.id = l.model_id
-      LEFT JOIN images img ON img.listing_id = l.id
-    `;
-  }
-
-  private toListing(row: ListingRecord): Listing {
-    return {
-      id: row.id,
-      userId: row.user_id,
-      brandId: row.brand_id,
-      brandName: row.brand_name,
-      modelId: row.model_id,
-      modelName: row.model_name,
-      title: row.title,
-      description: row.description,
-      year: row.year,
-      mileageKm: row.mileage_km,
-      fuel: row.fuel,
-      transmission: row.transmission,
-      location: row.location,
-      contactName: row.contact_name,
-      contactPhone: row.contact_phone,
-      contactEmail: row.contact_email,
-      price: Number(row.price),
-      currency: row.currency,
-      status: row.status,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      images: row.images ?? [],
-      primaryImageUrl: row.primary_image_url,
-    };
+  private createListingQuery(): SelectQueryBuilder<ListingEntity> {
+    return this.listingsRepository
+      .createQueryBuilder('listing')
+      .innerJoinAndSelect('listing.brand', 'brand')
+      .innerJoinAndSelect('listing.model', 'model')
+      .leftJoinAndSelect('listing.images', 'image');
   }
 
   private addFilter(
-    filters: string[],
-    params: unknown[],
+    queryBuilder: SelectQueryBuilder<ListingEntity>,
     expression: string,
+    key: string,
     value: string | number | undefined | null,
-    wrapLike = false,
   ) {
     if (value === undefined || value === null || value === '') {
       return;
     }
 
-    params.push(wrapLike ? `%${String(value)}%` : value);
-    filters.push(`${expression} $${params.length}`);
+    queryBuilder.andWhere(expression, { [key]: value });
   }
 
-  private addUpdate(
-    updates: string[],
-    params: unknown[],
-    column: string,
-    value: unknown,
+  private addSearch(
+    queryBuilder: SelectQueryBuilder<ListingEntity>,
+    search: string | undefined,
+  ) {
+    const searchValue = search?.trim();
+
+    if (!searchValue) {
+      return;
+    }
+
+    queryBuilder.andWhere(
+      new Brackets((builder) => {
+        builder
+          .where('listing.title ILIKE :search', {
+            search: `%${searchValue}%`,
+          })
+          .orWhere('listing.description ILIKE :search')
+          .orWhere('brand.name ILIKE :search')
+          .orWhere('model.name ILIKE :search')
+          .orWhere('listing.location ILIKE :search');
+      }),
+    );
+  }
+
+  private applySort(
+    queryBuilder: SelectQueryBuilder<ListingEntity>,
+    sort: ListListingsQueryDto['sort'],
+  ) {
+    if (sort === 'price-low' || sort === 'price_asc') {
+      queryBuilder
+        .orderBy('listing.price', 'ASC')
+        .addOrderBy('listing.createdAt', 'DESC');
+      return;
+    }
+
+    if (sort === 'price-high' || sort === 'price_desc') {
+      queryBuilder
+        .orderBy('listing.price', 'DESC')
+        .addOrderBy('listing.createdAt', 'DESC');
+      return;
+    }
+
+    queryBuilder.orderBy('listing.createdAt', 'DESC');
+  }
+
+  private buildListingUpdates(input: UpdateListingDto): Partial<ListingEntity> {
+    const updates: Partial<ListingEntity> = {};
+
+    this.addUpdate(updates, 'brandId', input.brandId);
+    this.addUpdate(updates, 'modelId', input.modelId);
+    this.addUpdate(updates, 'title', input.title);
+    this.addUpdate(updates, 'description', input.description);
+    this.addUpdate(updates, 'year', input.year);
+    this.addUpdate(updates, 'mileageKm', input.mileageKm);
+    this.addUpdate(updates, 'fuel', input.fuel);
+    this.addUpdate(updates, 'transmission', input.transmission);
+    this.addUpdate(updates, 'location', input.location);
+    this.addUpdate(updates, 'contactName', input.contactName);
+    this.addUpdate(updates, 'contactPhone', input.contactPhone);
+    this.addUpdate(updates, 'contactEmail', input.contactEmail);
+    this.addUpdate(
+      updates,
+      'price',
+      input.price === undefined ? undefined : String(input.price),
+    );
+    this.addUpdate(updates, 'currency', input.currency);
+    this.addUpdate(updates, 'status', input.status);
+
+    return updates;
+  }
+
+  private addUpdate<K extends keyof ListingEntity>(
+    updates: Partial<ListingEntity>,
+    key: K,
+    value: ListingEntity[K] | undefined,
   ) {
     if (value === undefined) {
       return;
     }
 
-    params.push(value);
-    updates.push(`${column} = $${params.length}`);
+    updates[key] = value;
+  }
+
+  private toListing(listing: ListingEntity): Listing {
+    const images = this.sortImages(listing.images ?? []);
+
+    return {
+      id: listing.id,
+      userId: listing.userId,
+      brandId: listing.brandId,
+      brandName: listing.brand.name,
+      modelId: listing.modelId,
+      modelName: listing.model.name,
+      title: listing.title,
+      description: listing.description,
+      year: listing.year,
+      mileageKm: listing.mileageKm,
+      fuel: listing.fuel,
+      transmission: listing.transmission,
+      location: listing.location,
+      contactName: listing.contactName,
+      contactPhone: listing.contactPhone,
+      contactEmail: listing.contactEmail,
+      price: Number(listing.price),
+      currency: listing.currency,
+      status: listing.status,
+      createdAt: listing.createdAt.toISOString(),
+      updatedAt: listing.updatedAt.toISOString(),
+      images: images.map((image) => this.toListingImage(image)),
+      primaryImageUrl: images[0]?.imageUrl ?? null,
+    };
+  }
+
+  private toListingImage(image: ImageEntity): ListingImage {
+    return {
+      id: image.id,
+      url: image.imageUrl,
+      altText: image.altText,
+      sortOrder: image.sortOrder,
+      isPrimary: image.isPrimary,
+    };
+  }
+
+  private sortImages(images: ImageEntity[]): ImageEntity[] {
+    return [...images].sort((first, second) => {
+      if (first.isPrimary !== second.isPrimary) {
+        return first.isPrimary ? -1 : 1;
+      }
+
+      if (first.sortOrder !== second.sortOrder) {
+        return first.sortOrder - second.sortOrder;
+      }
+
+      return first.createdAt.getTime() - second.createdAt.getTime();
+    });
   }
 
   private validateFiles(files: Express.Multer.File[]) {

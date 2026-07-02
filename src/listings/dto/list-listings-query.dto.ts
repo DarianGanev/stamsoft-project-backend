@@ -12,6 +12,8 @@ import {
 
 import { FuelType, TransmissionType } from '../listing.types';
 
+export type ListingSort = 'newest' | 'price-low' | 'price-high' | 'price_asc' | 'price_desc';
+
 const fuelTypes: FuelType[] = [
   'gasoline',
   'diesel',
@@ -25,6 +27,13 @@ const transmissionTypes: TransmissionType[] = [
   'manual',
   'automatic',
   'semi_automatic',
+];
+const listingSorts: ListingSort[] = [
+  'newest',
+  'price-low',
+  'price-high',
+  'price_asc',
+  'price_desc',
 ];
 
 export class ListListingsQueryDto {
@@ -84,4 +93,18 @@ export class ListListingsQueryDto {
   @IsInt()
   @Max(2100)
   maxYear?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  maxMileage?: number;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsIn(listingSorts)
+  sort?: ListingSort = 'newest';
 }

@@ -1,29 +1,29 @@
 import { ConflictException, Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
-import { DatabaseService } from '../database/database.service';
 import { CreateUserInput, SafeUser, UserRecord } from './user.types';
+import { UserEntity } from './user.entity';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    @InjectRepository(UserEntity)
+    private readonly usersRepository: Repository<UserEntity>,
+  ) {}
 
   async create(input: CreateUserInput): Promise<SafeUser> {
     try {
-      const result = await this.databaseService.query<UserRecord>(
-        `
-          INSERT INTO users (email, name, password_hash, role)
-          VALUES ($1, $2, $3, $4)
-          RETURNING id, email, name, password_hash, role, created_at, updated_at
-        `,
-        [
-          input.email.toLowerCase(),
-          input.name,
-          input.passwordHash,
-          input.role ?? 'user',
-        ],
+      const user = await this.usersRepository.save(
+        this.usersRepository.create({
+          email: input.email.toLowerCase(),
+          name: input.name,
+          passwordHash: input.passwordHash,
+          role: input.role ?? 'user',
+        }),
       );
 
-      return this.toSafeUser(result.rows[0]);
+      return this.toSafeUser(this.toUserRecord(user));
     } catch (error) {
       if (this.isUniqueEmailError(error)) {
         throw new ConflictException('A user with this email already exists.');
@@ -34,62 +34,34 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<UserRecord | null> {
-    const result = await this.databaseService.query<UserRecord>(
-      `
-        SELECT id, email, name, password_hash, role, created_at, updated_at
-        FROM users
-        WHERE email = $1
-      `,
-      [email.toLowerCase()],
-    );
+    const user = await this.usersRepository.findOne({
+      where: { email: email.toLowerCase() },
+    });
 
-    return result.rows[0] ?? null;
+    return user ? this.toUserRecord(user) : null;
   }
 
   async findById(id: string): Promise<UserRecord | null> {
-    const result = await this.databaseService.query<UserRecord>(
-      `
-        SELECT id, email, name, password_hash, role, created_at, updated_at
-        FROM users
-        WHERE id = $1
-      `,
-      [id],
-    );
+    const user = await this.usersRepository.findOne({ where: { id } });
 
-    return result.rows[0] ?? null;
+    return user ? this.toUserRecord(user) : null;
   }
 
   async countUsers(): Promise<number> {
-    const result = await this.databaseService.query<{ count: string }>(
-      'SELECT COUNT(*)::text AS count FROM users',
-    );
-
-    return Number(result.rows[0]?.count ?? 0);
+    return this.usersRepository.count();
   }
 
   async findRecentUsers(limit = 5): Promise<SafeUser[]> {
-    const result = await this.databaseService.query<UserRecord>(
-      `
-        SELECT id, email, name, password_hash, role, created_at, updated_at
-        FROM users
-        ORDER BY created_at DESC
-        LIMIT $1
-      `,
-      [limit],
-    );
+    const users = await this.usersRepository.find({
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
 
-    return result.rows.map((user) => this.toSafeUser(user));
+    return users.map((user) => this.toSafeUser(this.toUserRecord(user)));
   }
 
   async updatePassword(id: string, passwordHash: string): Promise<void> {
-    await this.databaseService.query(
-      `
-        UPDATE users
-        SET password_hash = $1, updated_at = NOW()
-        WHERE id = $2
-      `,
-      [passwordHash, id],
-    );
+    await this.usersRepository.update(id, { passwordHash });
   }
 
   toSafeUser(user: UserRecord): SafeUser {
@@ -108,5 +80,17 @@ export class UsersService {
       'code' in error &&
       error.code === '23505'
     );
+  }
+
+  private toUserRecord(user: UserEntity): UserRecord {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      password_hash: user.passwordHash,
+      role: user.role,
+      created_at: user.createdAt,
+      updated_at: user.updatedAt,
+    };
   }
 }

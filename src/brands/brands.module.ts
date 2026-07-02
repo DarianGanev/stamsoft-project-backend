@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 
-import { DatabaseModule } from '../database/database.module';
+import { BrandEntity } from './brand.entity';
 import { BrandsController } from './brands.controller';
 import { BrandsService } from './brands.service';
+import { VehicleModelEntity } from './vehicle-model.entity';
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [TypeOrmModule.forFeature([BrandEntity, VehicleModelEntity])],
   controllers: [BrandsController],
   providers: [BrandsService],
 })

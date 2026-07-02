@@ -1,47 +1,41 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
-import { DatabaseService } from '../database/database.service';
-import {
-  Brand,
-  BrandRecord,
-  VehicleModel,
-  VehicleModelRecord,
-} from './brand.types';
+import { Brand, VehicleModel } from './brand.types';
+import { BrandEntity } from './brand.entity';
+import { VehicleModelEntity } from './vehicle-model.entity';
 
 @Injectable()
 export class BrandsService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    @InjectRepository(BrandEntity)
+    private readonly brandsRepository: Repository<BrandEntity>,
+    @InjectRepository(VehicleModelEntity)
+    private readonly modelsRepository: Repository<VehicleModelEntity>,
+  ) {}
 
   async listBrands(): Promise<Brand[]> {
-    const result = await this.databaseService.query<BrandRecord>(
-      `
-        SELECT id, name
-        FROM brands
-        ORDER BY name ASC
-      `,
-    );
+    const brands = await this.brandsRepository.find({
+      order: { name: 'ASC' },
+    });
 
-    return result.rows.map((row) => ({
-      id: row.id,
-      name: row.name,
+    return brands.map((brand) => ({
+      id: brand.id,
+      name: brand.name,
     }));
   }
 
   async listModels(brandId: string): Promise<VehicleModel[]> {
-    const result = await this.databaseService.query<VehicleModelRecord>(
-      `
-        SELECT id, brand_id, name
-        FROM models
-        WHERE brand_id = $1
-        ORDER BY name ASC
-      `,
-      [brandId],
-    );
+    const models = await this.modelsRepository.find({
+      order: { name: 'ASC' },
+      where: { brandId },
+    });
 
-    return result.rows.map((row) => ({
-      id: row.id,
-      brandId: row.brand_id,
-      name: row.name,
+    return models.map((model) => ({
+      id: model.id,
+      brandId: model.brandId,
+      name: model.name,
     }));
   }
 }
