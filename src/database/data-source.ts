@@ -9,6 +9,7 @@ import { AddListingMvpFields1782980000003 } from './migrations/1782980000003-add
 import { AddListingImagePrimary1782980000004 } from './migrations/1782980000004-add-listing-image-primary';
 import { SeedVehicleBrandsAndModels1782980000005 } from './migrations/1782980000005-seed-vehicle-brands-and-models';
 import { AddListingSearchIndexes1782980000006 } from './migrations/1782980000006-add-listing-search-indexes';
+import { AddListingEngineFieldsAndEurDefault1782980000007 } from './migrations/1782980000007-add-listing-engine-fields-and-eur-default';
 
 config();
 
@@ -29,6 +30,7 @@ export const AppDataSource = new DataSource({
     AddListingImagePrimary1782980000004,
     SeedVehicleBrandsAndModels1782980000005,
     AddListingSearchIndexes1782980000006,
+    AddListingEngineFieldsAndEurDefault1782980000007,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,
