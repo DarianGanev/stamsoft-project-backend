@@ -2,20 +2,18 @@ import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common
 import { Response } from 'express';
 
 import { AuthService } from './auth.service';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
-import { AuthResponse } from './types/auth-response.type';
-import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { GoogleAuthGuard, JwtAuthGuard } from './guards';
+import {
+  ForgotPasswordDto,
+  LoginDto,
+  RegisterDto,
+  ResetPasswordDto,
+} from './dto';
 import {
   AuthenticatedRequest,
-  JwtAuthGuard,
-} from './guards/jwt-auth.guard';
-
-type SocialAuthenticatedRequest = Request & {
-  user: AuthResponse;
-};
+  AuthResponse,
+  SocialAuthenticatedRequest,
+} from './types';
 
 @Controller('auth')
 export class AuthController {

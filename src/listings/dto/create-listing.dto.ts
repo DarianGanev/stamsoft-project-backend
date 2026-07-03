@@ -12,31 +12,12 @@ import {
 } from 'class-validator';
 
 import {
-  FuelType,
-  ListingStatus,
-  TransmissionType,
-} from '../listing.types';
-
-const fuelTypes: FuelType[] = [
-  'gasoline',
-  'diesel',
-  'hybrid',
-  'electric',
-  'lpg',
-  'cng',
-  'other',
-];
-const transmissionTypes: TransmissionType[] = [
-  'manual',
-  'automatic',
-  'semi_automatic',
-];
-const listingStatuses: ListingStatus[] = [
-  'draft',
-  'published',
-  'sold',
-  'archived',
-];
+  CURRENCIES,
+  FUEL_TYPES,
+  LISTING_STATUSES,
+  TRANSMISSION_TYPES,
+} from '../constants';
+import { Currency, FuelType, ListingStatus, TransmissionType } from '../types';
 
 export class CreateListingDto {
   @IsUUID()
@@ -75,11 +56,11 @@ export class CreateListingDto {
   engineLiters?: number;
 
   @IsOptional()
-  @IsIn(fuelTypes)
+  @IsIn(FUEL_TYPES)
   fuel?: FuelType;
 
   @IsOptional()
-  @IsIn(transmissionTypes)
+  @IsIn(TRANSMISSION_TYPES)
   transmission?: TransmissionType;
 
   @IsOptional()
@@ -103,10 +84,10 @@ export class CreateListingDto {
   price: number;
 
   @IsOptional()
-  @IsIn(['EUR', 'BGN'])
-  currency?: string;
+  @IsIn(CURRENCIES)
+  currency?: Currency;
 
   @IsOptional()
-  @IsIn(listingStatuses)
+  @IsIn(LISTING_STATUSES)
   status?: ListingStatus;
 }

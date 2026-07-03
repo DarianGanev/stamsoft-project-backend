@@ -9,10 +9,9 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import { BrandEntity } from '../brands/brand.entity';
-import { VehicleModelEntity } from '../brands/vehicle-model.entity';
-import { UserEntity } from '../users/user.entity';
-import { FuelType, ListingStatus, TransmissionType } from './listing.types';
+import { BrandEntity, VehicleModelEntity } from '../../brands/entities';
+import { UserEntity } from '../../users/entities';
+import { Currency, FuelType, ListingStatus, TransmissionType } from '../types';
 import { ImageEntity } from './image.entity';
 
 @Entity({ name: 'listings' })
@@ -79,7 +78,7 @@ export class ListingEntity {
   price: string;
 
   @Column({ default: 'EUR', type: 'char', length: 3 })
-  currency: string;
+  currency: Currency;
 
   @Column({
     enum: ['draft', 'published', 'sold', 'archived'],

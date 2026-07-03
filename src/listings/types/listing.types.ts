@@ -8,6 +8,13 @@ export type FuelType =
   | 'cng'
   | 'other';
 export type TransmissionType = 'manual' | 'automatic' | 'semi_automatic';
+export type ListingSort =
+  | 'newest'
+  | 'price-low'
+  | 'price-high'
+  | 'price_asc'
+  | 'price_desc';
+export type Currency = 'EUR' | 'BGN';
 
 export interface ListingImage {
   id: string;
@@ -37,7 +44,7 @@ export interface Listing {
   contactPhone: string | null;
   contactEmail: string | null;
   price: number;
-  currency: string;
+  currency: Currency;
   status: ListingStatus;
   createdAt: string;
   updatedAt: string;
@@ -65,7 +72,7 @@ export interface ListingRecord {
   contact_phone: string | null;
   contact_email: string | null;
   price: string;
-  currency: string;
+  currency: Currency;
   status: ListingStatus;
   created_at: string;
   updated_at: string;

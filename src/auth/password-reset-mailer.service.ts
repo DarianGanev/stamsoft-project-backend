@@ -2,10 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createTransport } from 'nodemailer';
 
-type PasswordResetEmail = {
-  email: string;
-  resetLink: string;
-};
+import { PasswordResetEmail } from './types';
 
 @Injectable()
 export class PasswordResetMailer {

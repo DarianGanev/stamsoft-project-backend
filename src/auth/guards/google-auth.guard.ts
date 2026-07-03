@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';
 
-import { getFrontendOAuthErrorUrl, hasOAuthConfig } from '../oauth-config';
+import { getFrontendOAuthErrorUrl, hasOAuthConfig } from '../config';
 
 @Injectable()
 export class GoogleAuthGuard extends AuthGuard('google') {

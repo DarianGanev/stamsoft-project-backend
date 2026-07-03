@@ -2,9 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import { Brand, VehicleModel } from './brand.types';
-import { BrandEntity } from './brand.entity';
-import { VehicleModelEntity } from './vehicle-model.entity';
+import { BrandEntity, VehicleModelEntity } from './entities';
+import { Brand, VehicleModel } from './types';
 
 @Injectable()
 export class BrandsService {

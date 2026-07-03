@@ -7,8 +7,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import { ListingEntity } from '../listings/listing.entity';
-import { UserRole } from './user.types';
+import { ListingEntity } from '../../listings/entities';
+import { UserRole } from '../types';
 
 @Entity({ name: 'users' })
 export class UserEntity {

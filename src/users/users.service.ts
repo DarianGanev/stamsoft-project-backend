@@ -2,8 +2,8 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import { CreateUserInput, SafeUser, UserRecord } from './user.types';
-import { UserEntity } from './user.entity';
+import { UserEntity } from './entities';
+import { CreateUserInput, SafeUser, UserRecord } from './types';
 
 @Injectable()
 export class UsersService {

@@ -10,31 +10,12 @@ import {
   Min,
 } from 'class-validator';
 
-import { FuelType, TransmissionType } from '../listing.types';
-
-export type ListingSort = 'newest' | 'price-low' | 'price-high' | 'price_asc' | 'price_desc';
-
-const fuelTypes: FuelType[] = [
-  'gasoline',
-  'diesel',
-  'hybrid',
-  'electric',
-  'lpg',
-  'cng',
-  'other',
-];
-const transmissionTypes: TransmissionType[] = [
-  'manual',
-  'automatic',
-  'semi_automatic',
-];
-const listingSorts: ListingSort[] = [
-  'newest',
-  'price-low',
-  'price-high',
-  'price_asc',
-  'price_desc',
-];
+import {
+  FUEL_TYPES,
+  LISTING_SORTS,
+  TRANSMISSION_TYPES,
+} from '../constants';
+import { FuelType, ListingSort, TransmissionType } from '../types';
 
 export class ListListingsQueryDto {
   @IsOptional()
@@ -59,11 +40,11 @@ export class ListListingsQueryDto {
   modelId?: string;
 
   @IsOptional()
-  @IsIn(fuelTypes)
+  @IsIn(FUEL_TYPES)
   fuel?: FuelType;
 
   @IsOptional()
-  @IsIn(transmissionTypes)
+  @IsIn(TRANSMISSION_TYPES)
   transmission?: TransmissionType;
 
   @IsOptional()
@@ -105,6 +86,6 @@ export class ListListingsQueryDto {
   search?: string;
 
   @IsOptional()
-  @IsIn(listingSorts)
+  @IsIn(LISTING_SORTS)
   sort?: ListingSort = 'newest';
 }

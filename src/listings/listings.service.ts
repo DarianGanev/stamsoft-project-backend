@@ -7,21 +7,22 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
 
-import { BrandEntity } from '../brands/brand.entity';
-import { VehicleModelEntity } from '../brands/vehicle-model.entity';
-import { CreateListingDto } from './dto/create-listing.dto';
-import { ListListingsQueryDto } from './dto/list-listings-query.dto';
-import { UpdateListingDto } from './dto/update-listing.dto';
-import { UploadListingImagesDto } from './dto/upload-listing-images.dto';
-import { ImageEntity } from './image.entity';
-import { ListingEntity } from './listing.entity';
-import { Listing, ListingImage } from './listing.types';
+import { BrandEntity, VehicleModelEntity } from '../brands/entities';
+import {
+  CreateListingDto,
+  ListListingsQueryDto,
+  UpdateListingDto,
+  UploadListingImagesDto,
+} from './dto';
+import { ImageEntity, ListingEntity } from './entities';
+import { Listing, ListingImage } from './types';
 import { LocalImageStorageService } from './local-image-storage.service';
-
-const MAX_IMAGES_PER_LISTING = 20;
-const MAX_IMAGES_PER_UPLOAD = 10;
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+import {
+  ALLOWED_IMAGE_TYPES,
+  MAX_IMAGE_SIZE_BYTES,
+  MAX_IMAGES_PER_LISTING,
+  MAX_IMAGES_PER_UPLOAD,
+} from './constants';
 
 @Injectable()
 export class ListingsService {

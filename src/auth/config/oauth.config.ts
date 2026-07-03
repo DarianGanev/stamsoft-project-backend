@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 
-export type SocialProvider = 'google';
+import type { SocialProvider } from '../types';
 
 export function hasOAuthConfig(
   configService: ConfigService,

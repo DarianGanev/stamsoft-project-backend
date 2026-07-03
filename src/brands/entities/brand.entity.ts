@@ -7,7 +7,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import { ListingEntity } from '../listings/listing.entity';
+import { ListingEntity } from '../../listings/entities';
 import { VehicleModelEntity } from './vehicle-model.entity';
 
 @Entity({ name: 'brands' })

@@ -14,14 +14,14 @@ import {
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 
+import { JwtAuthGuard } from '../auth/guards';
+import { AuthenticatedRequest } from '../auth/types';
 import {
-  AuthenticatedRequest,
-  JwtAuthGuard,
-} from '../auth/guards/jwt-auth.guard';
-import { CreateListingDto } from './dto/create-listing.dto';
-import { ListListingsQueryDto } from './dto/list-listings-query.dto';
-import { UpdateListingDto } from './dto/update-listing.dto';
-import { UploadListingImagesDto } from './dto/upload-listing-images.dto';
+  CreateListingDto,
+  ListListingsQueryDto,
+  UpdateListingDto,
+  UploadListingImagesDto,
+} from './dto';
 import { ListingsService } from './listings.service';
 
 @Controller('listings')

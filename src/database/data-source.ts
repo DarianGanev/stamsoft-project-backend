@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { config } from 'dotenv';
 import { DataSource } from 'typeorm';
 
-import { databaseEntities } from './typeorm.options';
+import { databaseEntities } from './constants';
 import { CreateUsers1782980000001 } from './migrations/1782980000001-create-users';
 import { CreateMarketplaceTables1782980000002 } from './migrations/1782980000002-create-marketplace-tables';
 import { AddListingMvpFields1782980000003 } from './migrations/1782980000003-add-listing-mvp-fields';
