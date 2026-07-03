@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
+import * as packageJson from '../package.json';
 import { UsersService } from './users/users.service';
 
 @Injectable()
@@ -15,10 +16,18 @@ export class AppService {
     return {
       status: 'ok',
       service: 'carauction-backend',
+      version: packageJson.version,
       accounts: {
         total,
         recent,
       },
+    };
+  }
+
+  getVersion() {
+    return {
+      service: 'carauction-backend',
+      version: packageJson.version,
     };
   }
 }

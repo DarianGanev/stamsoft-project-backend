@@ -20,6 +20,7 @@ describe('AppService', () => {
     await expect(service.getHealth()).resolves.toEqual({
       status: 'ok',
       service: 'carauction-backend',
+      version: '0.1.0',
       accounts: {
         total: 1,
         recent: [
@@ -31,6 +32,19 @@ describe('AppService', () => {
           },
         ],
       },
+    });
+  });
+
+  it('returns backend version metadata', () => {
+    const usersService = {
+      countUsers: jest.fn(),
+      findRecentUsers: jest.fn(),
+    } as unknown as UsersService;
+    const service = new AppService(usersService);
+
+    expect(service.getVersion()).toEqual({
+      service: 'carauction-backend',
+      version: '0.1.0',
     });
   });
 });
