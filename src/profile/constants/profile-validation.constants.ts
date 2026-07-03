@@ -1,0 +1,2 @@
+export const PROFILE_NAME_MAX_LENGTH = 100;
+export const PROFILE_PHONE_MAX_LENGTH = 32;

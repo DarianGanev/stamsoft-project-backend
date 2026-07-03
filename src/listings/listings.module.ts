@@ -20,5 +20,6 @@ import { ListingsService } from './listings.service';
   ],
   controllers: [ListingsController],
   providers: [ListingsService, LocalImageStorageService],
+  exports: [ListingsService],
 })
 export class ListingsModule {}

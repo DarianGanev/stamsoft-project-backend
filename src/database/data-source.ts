@@ -10,6 +10,7 @@ import { AddListingImagePrimary1782980000004 } from './migrations/1782980000004-
 import { SeedVehicleBrandsAndModels1782980000005 } from './migrations/1782980000005-seed-vehicle-brands-and-models';
 import { AddListingSearchIndexes1782980000006 } from './migrations/1782980000006-add-listing-search-indexes';
 import { AddListingEngineFieldsAndEurDefault1782980000007 } from './migrations/1782980000007-add-listing-engine-fields-and-eur-default';
+import { AddUserPhone1782980000008 } from './migrations/1782980000008-add-user-phone';
 
 config();
 
@@ -31,6 +32,7 @@ export const AppDataSource = new DataSource({
     SeedVehicleBrandsAndModels1782980000005,
     AddListingSearchIndexes1782980000006,
     AddListingEngineFieldsAndEurDefault1782980000007,
+    AddUserPhone1782980000008,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,
