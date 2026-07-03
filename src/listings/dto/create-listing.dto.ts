@@ -65,6 +65,16 @@ export class CreateListingDto {
   mileageKm?: number;
 
   @IsOptional()
+  @IsInt()
+  @Min(0)
+  powerHp?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  engineLiters?: number;
+
+  @IsOptional()
   @IsIn(fuelTypes)
   fuel?: FuelType;
 
@@ -93,7 +103,7 @@ export class CreateListingDto {
   price: number;
 
   @IsOptional()
-  @IsString()
+  @IsIn(['EUR', 'BGN'])
   currency?: string;
 
   @IsOptional()

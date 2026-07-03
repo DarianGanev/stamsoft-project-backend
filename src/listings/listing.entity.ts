@@ -41,6 +41,12 @@ export class ListingEntity {
   @Column({ name: 'mileage_km', nullable: true, type: 'integer' })
   mileageKm: number | null;
 
+  @Column({ name: 'power_hp', nullable: true, type: 'integer' })
+  powerHp: number | null;
+
+  @Column({ name: 'engine_liters', nullable: true, type: 'numeric' })
+  engineLiters: string | null;
+
   @Column({
     enum: ['gasoline', 'diesel', 'hybrid', 'electric', 'lpg', 'cng', 'other'],
     enumName: 'fuel_type',
@@ -72,7 +78,7 @@ export class ListingEntity {
   @Column({ type: 'numeric' })
   price: string;
 
-  @Column({ default: 'BGN', type: 'char', length: 3 })
+  @Column({ default: 'EUR', type: 'char', length: 3 })
   currency: string;
 
   @Column({

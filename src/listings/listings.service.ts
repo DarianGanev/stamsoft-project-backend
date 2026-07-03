@@ -111,6 +111,9 @@ export class ListingsService {
         description: input.description ?? null,
         year: input.year ?? null,
         mileageKm: input.mileageKm ?? null,
+        powerHp: input.powerHp ?? null,
+        engineLiters:
+          input.engineLiters === undefined ? null : String(input.engineLiters),
         fuel: input.fuel ?? null,
         transmission: input.transmission ?? null,
         location: input.location ?? null,
@@ -118,7 +121,7 @@ export class ListingsService {
         contactPhone: input.contactPhone ?? null,
         contactEmail: input.contactEmail ?? null,
         price: String(input.price),
-        currency: input.currency ?? 'BGN',
+        currency: input.currency ?? 'EUR',
         status: input.status ?? 'published',
       }),
     );
@@ -319,6 +322,12 @@ export class ListingsService {
     this.addUpdate(updates, 'description', input.description);
     this.addUpdate(updates, 'year', input.year);
     this.addUpdate(updates, 'mileageKm', input.mileageKm);
+    this.addUpdate(updates, 'powerHp', input.powerHp);
+    this.addUpdate(
+      updates,
+      'engineLiters',
+      input.engineLiters === undefined ? undefined : String(input.engineLiters),
+    );
     this.addUpdate(updates, 'fuel', input.fuel);
     this.addUpdate(updates, 'transmission', input.transmission);
     this.addUpdate(updates, 'location', input.location);
@@ -362,6 +371,9 @@ export class ListingsService {
       description: listing.description,
       year: listing.year,
       mileageKm: listing.mileageKm,
+      powerHp: listing.powerHp,
+      engineLiters:
+        listing.engineLiters === null ? null : Number(listing.engineLiters),
       fuel: listing.fuel,
       transmission: listing.transmission,
       location: listing.location,

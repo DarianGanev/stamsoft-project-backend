@@ -28,6 +28,8 @@ export interface Listing {
   description: string | null;
   year: number | null;
   mileageKm: number | null;
+  powerHp: number | null;
+  engineLiters: number | null;
   fuel: FuelType | null;
   transmission: TransmissionType | null;
   location: string | null;
@@ -54,6 +56,8 @@ export interface ListingRecord {
   description: string | null;
   year: number | null;
   mileage_km: number | null;
+  power_hp: number | null;
+  engine_liters: string | null;
   fuel: FuelType | null;
   transmission: TransmissionType | null;
   location: string | null;
