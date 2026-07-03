@@ -28,6 +28,7 @@ describe('JwtAuthGuard', () => {
         id: user.id,
         email: user.email,
         name: user.name,
+        phone: user.phone,
         role: user.role,
       })),
     };
@@ -59,6 +60,7 @@ describe('JwtAuthGuard', () => {
       id: 'user-1',
       email: 'driver@example.com',
       name: 'Driver',
+      phone: null,
       role: 'user',
       password_hash: 'password-hash',
     });
@@ -68,6 +70,7 @@ describe('JwtAuthGuard', () => {
       id: 'user-1',
       email: 'driver@example.com',
       name: 'Driver',
+      phone: null,
       role: 'user',
     });
   });

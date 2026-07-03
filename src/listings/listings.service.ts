@@ -87,6 +87,55 @@ export class ListingsService {
     };
   }
 
+  async listMine(userId: string, query: ListListingsQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const offset = (page - 1) * limit;
+    const queryBuilder = this.createListingQuery()
+      .where('listing.userId = :userId', { userId })
+      .skip(offset)
+      .take(limit);
+
+    this.addFilter(queryBuilder, 'listing.brandId = :brandId', 'brandId', query.brandId);
+    this.addFilter(queryBuilder, 'listing.modelId = :modelId', 'modelId', query.modelId);
+    this.addFilter(queryBuilder, 'listing.fuel = :fuel', 'fuel', query.fuel);
+    this.addFilter(
+      queryBuilder,
+      'listing.transmission = :transmission',
+      'transmission',
+      query.transmission,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.location ILIKE :location',
+      'location',
+      query.location ? `%${query.location}%` : undefined,
+    );
+    this.addFilter(queryBuilder, 'listing.price >= :minPrice', 'minPrice', query.minPrice);
+    this.addFilter(queryBuilder, 'listing.price <= :maxPrice', 'maxPrice', query.maxPrice);
+    this.addFilter(queryBuilder, 'listing.year >= :minYear', 'minYear', query.minYear);
+    this.addFilter(queryBuilder, 'listing.year <= :maxYear', 'maxYear', query.maxYear);
+    this.addFilter(
+      queryBuilder,
+      'listing.mileageKm <= :maxMileage',
+      'maxMileage',
+      query.maxMileage,
+    );
+    this.addSearch(queryBuilder, query.search);
+    this.applySort(queryBuilder, query.sort);
+
+    const [listings, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      data: listings.map((listing) => this.toListing(listing)),
+      meta: {
+        page,
+        limit,
+        total,
+      },
+    };
+  }
+
   async findPublished(id: string): Promise<Listing> {
     const listing = await this.createListingQuery()
       .where('listing.id = :id', { id })

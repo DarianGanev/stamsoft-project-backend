@@ -27,6 +27,7 @@ describe('UsersService', () => {
       id: 'user-1',
       email: 'driver@example.com',
       name: 'Driver',
+      phone: null,
       passwordHash: 'password-hash',
       role: 'user',
       createdAt: now,
@@ -53,6 +54,7 @@ describe('UsersService', () => {
       id: 'user-1',
       email: 'driver@example.com',
       name: 'Driver',
+      phone: null,
       role: 'user',
     });
 
@@ -111,6 +113,7 @@ describe('UsersService', () => {
         id: 'user-1',
         email: 'driver@example.com',
         name: 'Driver',
+        phone: null,
         role: 'user',
       },
     ]);
@@ -128,6 +131,35 @@ describe('UsersService', () => {
 
     expect(repository.update).toHaveBeenCalledWith('user-1', {
       passwordHash: 'new-hash',
+    });
+  });
+
+  it('updates profile name and phone without exposing password hash', async () => {
+    const { repository, service } = createService();
+
+    repository.findOne.mockResolvedValue(
+      userEntity({
+        name: 'Updated Driver',
+        phone: '+359888123456',
+      }),
+    );
+
+    await expect(
+      service.updateProfile('user-1', {
+        name: ' Updated Driver ',
+        phone: ' +359888123456 ',
+      }),
+    ).resolves.toEqual({
+      id: 'user-1',
+      email: 'driver@example.com',
+      name: 'Updated Driver',
+      phone: '+359888123456',
+      role: 'user',
+    });
+
+    expect(repository.update).toHaveBeenCalledWith('user-1', {
+      name: 'Updated Driver',
+      phone: '+359888123456',
     });
   });
 });

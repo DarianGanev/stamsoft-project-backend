@@ -28,6 +28,7 @@ describe('AuthService login and register', () => {
         id: user.id,
         email: user.email,
         name: user.name,
+        phone: user.phone,
         role: user.role,
       })),
       ...usersServiceOverrides,
@@ -58,6 +59,7 @@ describe('AuthService login and register', () => {
       id: 'user-1',
       email: 'driver@example.com',
       name: 'Driver',
+      phone: null,
       role: 'user',
     });
 
@@ -73,6 +75,7 @@ describe('AuthService login and register', () => {
         id: 'user-1',
         email: 'driver@example.com',
         name: 'Driver',
+        phone: null,
         role: 'user',
       },
     });
@@ -98,6 +101,7 @@ describe('AuthService login and register', () => {
       id: 'user-1',
       email: 'driver@example.com',
       name: 'Driver',
+      phone: null,
       password_hash: 'password-hash',
       role: 'user',
       created_at: new Date('2026-07-03T08:00:00.000Z'),
@@ -138,6 +142,7 @@ describe('AuthService login and register', () => {
       id: 'user-1',
       email: 'driver@example.com',
       name: 'Driver',
+      phone: null,
       password_hash: 'password-hash',
       role: 'user',
       created_at: new Date('2026-07-03T08:00:00.000Z'),
@@ -274,6 +279,7 @@ describe('AuthService forgot password', () => {
       id: 'user-1',
       email: 'driver@example.com',
       name: 'Driver',
+      phone: null,
       role: 'user',
     });
     const usersService = {

@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { BrandsModule } from './brands/brands.module';
 import { createTypeOrmOptions } from './database/typeorm.options';
 import { ListingsModule } from './listings/listings.module';
+import { ProfileModule } from './profile/profile.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -23,6 +24,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     BrandsModule,
     ListingsModule,
+    ProfileModule,
   ],
   controllers: [AppController],
   providers: [AppService],

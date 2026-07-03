@@ -172,6 +172,37 @@ describe('ListingsService', () => {
     );
   });
 
+  it('lists only listings owned by the authenticated user', async () => {
+    const { queryBuilder, service } = createService();
+    const listing = listingEntity({ status: 'draft' });
+
+    queryBuilder.getManyAndCount.mockResolvedValue([[listing], 1]);
+
+    await expect(
+      service.listMine('user-1', {
+        page: 1,
+        limit: 5,
+        sort: 'newest',
+      }),
+    ).resolves.toEqual({
+      data: [
+        expect.objectContaining({
+          id: 'listing-1',
+          status: 'draft',
+          userId: 'user-1',
+        }),
+      ],
+      meta: { page: 1, limit: 5, total: 1 },
+    });
+
+    expect(queryBuilder.where).toHaveBeenCalledWith(
+      'listing.userId = :userId',
+      { userId: 'user-1' },
+    );
+    expect(queryBuilder.skip).toHaveBeenCalledWith(0);
+    expect(queryBuilder.take).toHaveBeenCalledWith(5);
+  });
+
   it('creates a listing only when brand and model pair is valid', async () => {
     const { brandsRepository, listingsRepository, modelsRepository, queryBuilder, service } =
       createService();
