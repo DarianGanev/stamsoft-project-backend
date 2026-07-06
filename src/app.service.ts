@@ -1,24 +1,14 @@
 import { Injectable } from '@nestjs/common';
 
-import { UsersService } from './users/users.service';
+const BACKEND_VERSION = '0.1.0';
 
 @Injectable()
 export class AppService {
-  constructor(private readonly usersService: UsersService) {}
-
-  async getHealth() {
-    const [total, recent] = await Promise.all([
-      this.usersService.countUsers(),
-      this.usersService.findRecentUsers(),
-    ]);
-
+  getHealth() {
     return {
       status: 'ok',
       service: 'carauction-backend',
-      accounts: {
-        total,
-        recent,
-      },
+      version: BACKEND_VERSION,
     };
   }
 }

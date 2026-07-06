@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -34,7 +35,7 @@ export class ListingsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.listingsService.findPublished(id);
   }
 
@@ -50,7 +51,7 @@ export class ListingsController {
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
   update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Req() request: AuthenticatedRequest,
     @Body() updateListingDto: UpdateListingDto,
   ) {
@@ -59,7 +60,10 @@ export class ListingsController {
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  remove(@Param('id') id: string, @Req() request: AuthenticatedRequest) {
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
     return this.listingsService.remove(id, request.user.id);
   }
 
@@ -67,7 +71,7 @@ export class ListingsController {
   @Post(':id/images')
   @UseInterceptors(FilesInterceptor('images'))
   uploadImages(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Req() request: AuthenticatedRequest,
     @UploadedFiles() files: Express.Multer.File[] = [],
     @Body() uploadListingImagesDto: UploadListingImagesDto,
