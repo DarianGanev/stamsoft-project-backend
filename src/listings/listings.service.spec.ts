@@ -85,6 +85,8 @@ describe('ListingsService', () => {
       price: '18000.00',
       currency: 'EUR',
       status: 'published',
+      moderatedAt: null,
+      moderatedById: null,
       createdAt: new Date('2026-07-01T10:00:00.000Z'),
       updatedAt: new Date('2026-07-02T10:00:00.000Z'),
       brand: { id: 'brand-1', name: 'BMW' } as BrandEntity,
@@ -244,9 +246,69 @@ describe('ListingsService', () => {
         currency: 'EUR',
         engineLiters: '2',
         powerHp: 190,
-        status: 'published',
+        status: 'pending',
       }),
     );
+  });
+
+  it('lists pending listings for admin moderation by default', async () => {
+    const { queryBuilder, service } = createService();
+    const listing = listingEntity({ status: 'pending' });
+
+    queryBuilder.getManyAndCount.mockResolvedValue([[listing], 1]);
+
+    await expect(service.listForModeration({})).resolves.toEqual({
+      data: [
+        expect.objectContaining({
+          id: 'listing-1',
+          status: 'pending',
+        }),
+      ],
+      meta: { page: 1, limit: 20, total: 1 },
+    });
+
+    expect(queryBuilder.where).toHaveBeenCalledWith(
+      'listing.status = :status',
+      { status: 'pending' },
+    );
+    expect(queryBuilder.orderBy).toHaveBeenCalledWith(
+      'listing.createdAt',
+      'DESC',
+    );
+  });
+
+  it('moderates a listing with admin id and timestamp', async () => {
+    const { listingsRepository, queryBuilder, service } = createService();
+
+    listingsRepository.findOne.mockResolvedValue(listingEntity({ status: 'pending' }));
+    queryBuilder.getOne.mockResolvedValue(
+      listingEntity({
+        moderatedAt: new Date('2026-07-06T10:00:00.000Z'),
+        moderatedById: 'admin-1',
+        status: 'rejected',
+      }),
+    );
+
+    await expect(
+      service.moderate('listing-1', 'admin-1', 'rejected'),
+    ).resolves.toMatchObject({
+      id: 'listing-1',
+      moderatedAt: '2026-07-06T10:00:00.000Z',
+      moderatedById: 'admin-1',
+      status: 'rejected',
+    });
+
+    const updateCalls = listingsRepository.update.mock.calls as [
+      string,
+      Partial<ListingEntity>,
+    ][];
+    const [, updatePayload] = updateCalls[0];
+
+    expect(updatePayload.moderatedAt).toBeInstanceOf(Date);
+    expect(updatePayload).toMatchObject({
+      moderatedById: 'admin-1',
+      status: 'rejected',
+    });
   });
 
   it('rejects create when selected model does not belong to selected brand', async () => {
