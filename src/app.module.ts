@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { BrandsModule } from './brands/brands.module';
 import { createTypeOrmOptions } from './database/typeorm.options';
@@ -20,6 +21,7 @@ import { UsersModule } from './users/users.module';
       inject: [ConfigService],
       useFactory: createTypeOrmOptions,
     }),
+    AdminModule,
     UsersModule,
     AuthModule,
     BrandsModule,

@@ -1,6 +1,7 @@
 import type {
   Currency,
   FuelType,
+  ListingModerationStatus,
   ListingSort,
   ListingStatus,
   TransmissionType,
@@ -23,10 +24,17 @@ export const TRANSMISSION_TYPES: readonly TransmissionType[] = [
 ] as const;
 
 export const LISTING_STATUSES: readonly ListingStatus[] = [
-  'draft',
+  'pending',
   'published',
+  'rejected',
+  'draft',
   'sold',
   'archived',
+] as const;
+
+export const LISTING_MODERATION_STATUSES: readonly ListingModerationStatus[] = [
+  'published',
+  'rejected',
 ] as const;
 
 export const LISTING_SORTS: readonly ListingSort[] = [

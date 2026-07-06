@@ -14,10 +14,9 @@ import {
 import {
   CURRENCIES,
   FUEL_TYPES,
-  LISTING_STATUSES,
   TRANSMISSION_TYPES,
 } from '../constants';
-import { Currency, FuelType, ListingStatus, TransmissionType } from '../types';
+import { Currency, FuelType, TransmissionType } from '../types';
 
 export class CreateListingDto {
   @IsUUID()
@@ -86,8 +85,4 @@ export class CreateListingDto {
   @IsOptional()
   @IsIn(CURRENCIES)
   currency?: Currency;
-
-  @IsOptional()
-  @IsIn(LISTING_STATUSES)
-  status?: ListingStatus;
 }

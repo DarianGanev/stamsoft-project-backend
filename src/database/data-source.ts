@@ -19,6 +19,7 @@ export const AppDataSource = new DataSource({
   entities: databaseEntities,
   migrations: [join(__dirname, 'migrations', '*{.ts,.js}')],
   migrationsTableName: 'typeorm_migrations',
+  migrationsTransactionMode: 'each',
   synchronize: false,
   ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
 });

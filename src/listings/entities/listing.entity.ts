@@ -28,6 +28,7 @@ import { ImageEntity } from './image.entity';
 @Index('idx_listings_location', ['location'])
 @Index('idx_listings_mileage_km', ['mileageKm'])
 @Index('idx_listings_created_at', ['createdAt'])
+@Index('idx_listings_moderated_by_id', ['moderatedById'])
 @Check('chk_listings_year', '"year" IS NULL OR "year" BETWEEN 1886 AND 2100')
 @Check('chk_listings_mileage_km', '"mileage_km" IS NULL OR "mileage_km" >= 0')
 @Check('chk_listings_power_hp', '"power_hp" IS NULL OR "power_hp" >= 0')
@@ -105,12 +106,18 @@ export class ListingEntity {
   currency: Currency;
 
   @Column({
-    enum: ['draft', 'published', 'sold', 'archived'],
+    enum: ['pending', 'published', 'rejected', 'draft', 'sold', 'archived'],
     enumName: 'listing_status',
-    default: 'draft',
+    default: 'pending',
     type: 'enum',
   })
   status: ListingStatus;
+
+  @Column({ name: 'moderated_at', nullable: true, type: 'timestamptz' })
+  moderatedAt: Date | null;
+
+  @Column({ name: 'moderated_by_id', nullable: true, type: 'uuid' })
+  moderatedById: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
@@ -121,6 +128,10 @@ export class ListingEntity {
   @ManyToOne(() => UserEntity, (user) => user.listings, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: UserEntity;
+
+  @ManyToOne(() => UserEntity, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'moderated_by_id' })
+  moderatedBy: UserEntity | null;
 
   @ManyToOne(() => BrandEntity, (brand) => brand.listings, {
     onDelete: 'RESTRICT',

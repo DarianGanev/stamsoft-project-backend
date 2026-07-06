@@ -1,4 +1,11 @@
-export type ListingStatus = 'draft' | 'published' | 'sold' | 'archived';
+export type ListingStatus =
+  | 'pending'
+  | 'published'
+  | 'rejected'
+  | 'draft'
+  | 'sold'
+  | 'archived';
+export type ListingModerationStatus = 'published' | 'rejected';
 export type FuelType =
   | 'gasoline'
   | 'diesel'
@@ -46,6 +53,8 @@ export interface Listing {
   price: number;
   currency: Currency;
   status: ListingStatus;
+  moderatedAt: string | null;
+  moderatedById: string | null;
   createdAt: string;
   updatedAt: string;
   images: ListingImage[];
@@ -74,8 +83,16 @@ export interface ListingRecord {
   price: string;
   currency: Currency;
   status: ListingStatus;
+  moderated_at: string | null;
+  moderated_by_id: string | null;
   created_at: string;
   updated_at: string;
   images: ListingImage[] | null;
   primary_image_url: string | null;
+}
+
+export interface AdminListListingsInput {
+  page?: number;
+  limit?: number;
+  status?: ListingStatus;
 }
