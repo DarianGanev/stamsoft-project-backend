@@ -5,29 +5,19 @@ import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 
 import { UsersService } from '../users/users.service';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
+import {
+  FORGOT_PASSWORD_MESSAGE,
+  PASSWORD_SALT_ROUNDS,
+  RESET_PASSWORD_MESSAGE,
+} from './constants';
+import {
+  ForgotPasswordDto,
+  LoginDto,
+  RegisterDto,
+  ResetPasswordDto,
+} from './dto';
 import { PasswordResetMailer } from './password-reset-mailer.service';
-import { JwtPayload } from './types/jwt-payload.type';
-
-const PASSWORD_SALT_ROUNDS = 12;
-
-type PasswordResetJwtPayload = {
-  sub: string;
-  email: string;
-  type: 'password-reset';
-};
-
-type SocialProfile = {
-  email?: string;
-  name?: string;
-};
-
-const FORGOT_PASSWORD_MESSAGE =
-  'If an account exists, a password reset link has been sent.';
-const RESET_PASSWORD_MESSAGE = 'Password has been reset successfully.';
+import { JwtPayload, PasswordResetJwtPayload, SocialProfile } from './types';
 
 @Injectable()
 export class AuthService {

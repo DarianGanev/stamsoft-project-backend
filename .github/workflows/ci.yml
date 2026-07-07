@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      postgres:
+      postgre:
         image: postgres:16
         env:
           POSTGRES_DB: stamsoft
@@ -59,13 +59,13 @@ jobs:
         run: npm ci
 
       - name: Lint
-        run: npm run lint:check
+        run: npm run lint
 
       - name: Run migrations
-        run: npm run db:migrate
+        run: npm run migration:run
 
       - name: Test
-        run: npm run test:ci
+        run: npm run test
 
       - name: Build
         run: npm run build

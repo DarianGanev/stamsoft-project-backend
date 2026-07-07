@@ -6,15 +6,9 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Request } from 'express';
 
-import { SafeUser } from '../../users/user.types';
 import { UsersService } from '../../users/users.service';
-import { JwtPayload } from '../types/jwt-payload.type';
-
-export type AuthenticatedRequest = Request & {
-  user: SafeUser;
-};
+import { AuthenticatedRequest, JwtPayload } from '../types';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -50,7 +44,7 @@ export class JwtAuthGuard implements CanActivate {
     }
   }
 
-  private extractToken(request: Request): string | null {
+  private extractToken(request: AuthenticatedRequest): string | null {
     const [type, token] = request.headers.authorization?.split(' ') ?? [];
 
     return type === 'Bearer' && token ? token : null;
