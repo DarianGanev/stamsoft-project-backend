@@ -248,11 +248,9 @@ export class ListingsService {
     return this.findOwned(id, userId);
   }
 
-  async remove(id: string, userId: string) {
+  async remove(id: string, userId: string): Promise<void> {
     await this.ensureOwner(id, userId);
     await this.listingsRepository.delete(id);
-
-    return { message: 'Listing deleted successfully.' };
   }
 
   async uploadImages(

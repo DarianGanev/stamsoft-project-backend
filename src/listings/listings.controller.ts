@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -60,6 +61,7 @@ export class ListingsController {
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
+  @HttpCode(204)
   remove(
     @Param('id', ParseUUIDPipe) id: string,
     @Req() request: AuthenticatedRequest,
