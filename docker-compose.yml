@@ -1,5 +1,5 @@
 services:
-  postgres:
+  postgre:
     image: postgres:16
     container_name: ${DATABASE_CONTAINER_NAME}
     restart: unless-stopped

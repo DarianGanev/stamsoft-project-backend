@@ -1,7 +1,9 @@
 import {
+  Check,
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   OneToMany,
@@ -15,6 +17,22 @@ import { Currency, FuelType, ListingStatus, TransmissionType } from '../types';
 import { ImageEntity } from './image.entity';
 
 @Entity({ name: 'listings' })
+@Index('idx_listings_user_id', ['userId'])
+@Index('idx_listings_brand_id', ['brandId'])
+@Index('idx_listings_model_id', ['modelId'])
+@Index('idx_listings_status', ['status'])
+@Index('idx_listings_price', ['price'])
+@Index('idx_listings_year', ['year'])
+@Index('idx_listings_fuel', ['fuel'])
+@Index('idx_listings_transmission', ['transmission'])
+@Index('idx_listings_location', ['location'])
+@Index('idx_listings_mileage_km', ['mileageKm'])
+@Index('idx_listings_created_at', ['createdAt'])
+@Check('chk_listings_year', '"year" IS NULL OR "year" BETWEEN 1886 AND 2100')
+@Check('chk_listings_mileage_km', '"mileage_km" IS NULL OR "mileage_km" >= 0')
+@Check('chk_listings_power_hp', '"power_hp" IS NULL OR "power_hp" >= 0')
+@Check('chk_listings_engine_liters', '"engine_liters" IS NULL OR "engine_liters" >= 0')
+@Check('chk_listings_price', '"price" >= 0')
 export class ListingEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -43,7 +61,13 @@ export class ListingEntity {
   @Column({ name: 'power_hp', nullable: true, type: 'integer' })
   powerHp: number | null;
 
-  @Column({ name: 'engine_liters', nullable: true, type: 'numeric' })
+  @Column({
+    name: 'engine_liters',
+    nullable: true,
+    precision: 4,
+    scale: 1,
+    type: 'numeric',
+  })
   engineLiters: string | null;
 
   @Column({
@@ -74,7 +98,7 @@ export class ListingEntity {
   @Column({ name: 'contact_email', nullable: true, type: 'text' })
   contactEmail: string | null;
 
-  @Column({ type: 'numeric' })
+  @Column({ precision: 12, scale: 2, type: 'numeric' })
   price: string;
 
   @Column({ default: 'EUR', type: 'char', length: 3 })
@@ -83,6 +107,7 @@ export class ListingEntity {
   @Column({
     enum: ['draft', 'published', 'sold', 'archived'],
     enumName: 'listing_status',
+    default: 'draft',
     type: 'enum',
   })
   status: ListingStatus;

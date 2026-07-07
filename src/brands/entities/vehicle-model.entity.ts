@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   OneToMany,
@@ -13,6 +14,9 @@ import { ListingEntity } from '../../listings/entities';
 import { BrandEntity } from './brand.entity';
 
 @Entity({ name: 'models' })
+@Index('idx_models_brand_id', ['brandId'])
+@Index('idx_models_brand_id_name', ['brandId', 'name'], { unique: true })
+@Index('idx_models_id_brand_id', ['id', 'brandId'], { unique: true })
 export class VehicleModelEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;

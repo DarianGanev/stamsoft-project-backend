@@ -27,6 +27,7 @@ export class UserEntity {
   @Column({
     enum: ['user', 'admin'],
     enumName: 'user_role',
+    default: 'user',
     type: 'enum',
   })
   role: UserRole;
