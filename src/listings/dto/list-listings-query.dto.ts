@@ -8,6 +8,7 @@ import {
   IsUUID,
   Max,
   Min,
+  Validate,
 } from 'class-validator';
 
 import {
@@ -16,6 +17,7 @@ import {
   TRANSMISSION_TYPES,
 } from '../constants';
 import { FuelType, ListingSort, TransmissionType } from '../types';
+import { IsGreaterThanOrEqualToPropertyConstraint } from '../validators';
 
 export class ListListingsQueryDto {
   @IsOptional()
@@ -61,18 +63,22 @@ export class ListListingsQueryDto {
   @Type(() => Number)
   @IsNumber()
   @Min(0)
+  @Validate(IsGreaterThanOrEqualToPropertyConstraint, ['minPrice'])
   maxPrice?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1886)
+  @Max(2100)
   minYear?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @Min(1886)
   @Max(2100)
+  @Validate(IsGreaterThanOrEqualToPropertyConstraint, ['minYear'])
   maxYear?: number;
 
   @IsOptional()
