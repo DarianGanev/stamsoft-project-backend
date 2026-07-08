@@ -1,0 +1,87 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
+
+import { ListingEntity } from '../listings/entities';
+import { ListingsService } from '../listings/listings.service';
+import { UserEntity } from '../users/entities';
+import { ListSellerListingsQueryDto } from './dto';
+import { PublicSeller, SellerListingsResponse } from './types';
+
+@Injectable()
+export class SellersService {
+  constructor(
+    @InjectRepository(UserEntity)
+    private readonly usersRepository: Repository<UserEntity>,
+    @InjectRepository(ListingEntity)
+    private readonly listingsRepository: Repository<ListingEntity>,
+    private readonly listingsService: ListingsService,
+  ) {}
+
+  async findPublicSeller(userId: string): Promise<PublicSeller> {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new NotFoundException('Seller not found.');
+    }
+
+    const contactListing = await this.listingsRepository.findOne({
+      order: { createdAt: 'DESC' },
+      select: { contactPhone: true, id: true },
+      where: {
+        contactPhone: Not(IsNull()),
+        status: 'published',
+        userId,
+      },
+    });
+
+    return {
+      id: user.id,
+      name: user.name,
+      phone: contactListing?.contactPhone ?? null,
+      createdAt: user.createdAt.toISOString(),
+    };
+  }
+
+  async listPublishedListings(
+    userId: string,
+    query: ListSellerListingsQueryDto,
+  ): Promise<SellerListingsResponse> {
+    await this.ensureSellerExists(userId);
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 6;
+    const offset = (page - 1) * limit;
+    const queryBuilder = this.listingsRepository
+      .createQueryBuilder('listing')
+      .innerJoinAndSelect('listing.brand', 'brand')
+      .innerJoinAndSelect('listing.model', 'model')
+      .leftJoinAndSelect('listing.images', 'image')
+      .where('listing.userId = :userId', { userId })
+      .andWhere('listing.status = :status', { status: 'published' })
+      .orderBy('listing.createdAt', 'DESC')
+      .skip(offset)
+      .take(limit);
+
+    const [listings, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      data: listings.map((listing) =>
+        this.listingsService.toListingResponse(listing),
+      ),
+      meta: {
+        page,
+        limit,
+        total,
+      },
+    };
+  }
+
+  private async ensureSellerExists(userId: string): Promise<void> {
+    const exists = await this.usersRepository.exists({ where: { id: userId } });
+
+    if (!exists) {
+      throw new NotFoundException('Seller not found.');
+    }
+  }
+}
