@@ -14,7 +14,6 @@ export const databaseEntities = [
   VehicleModelEntity,
   ListingEntity,
   ImageEntity,
-<<<<<<< HEAD
   ListingFeatureEntity,
   ListingFeatureSelectionEntity,
   FavoriteEntity,
