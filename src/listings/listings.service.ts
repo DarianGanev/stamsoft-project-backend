@@ -394,6 +394,10 @@ export class ListingsService {
     return this.findOwned(listingId, userId);
   }
 
+  toListingResponse(listing: ListingEntity): Listing {
+    return this.toListing(listing);
+  }
+
   private async findOwned(id: string, userId: string): Promise<Listing> {
     const listing = await this.createListingQuery()
       .where('listing.id = :id', { id })
