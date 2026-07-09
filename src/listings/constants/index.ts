@@ -7,6 +7,11 @@ export {
   TRANSMISSION_TYPES,
 } from './listing-options.constants';
 export {
+  LISTING_FEATURE_CATEGORIES,
+  LISTING_FEATURE_CATEGORY_LABELS,
+  LISTING_FEATURE_OPTIONS,
+} from './listing-feature-options.constants';
+export {
   ALLOWED_IMAGE_TYPES,
   MAX_IMAGE_SIZE_BYTES,
   MAX_IMAGES_PER_LISTING,
