@@ -1,5 +1,10 @@
 import { BrandEntity, VehicleModelEntity } from '../../brands/entities';
-import { ImageEntity, ListingEntity } from '../../listings/entities';
+import {
+  ImageEntity,
+  ListingEntity,
+  ListingFeatureEntity,
+  ListingFeatureSelectionEntity,
+} from '../../listings/entities';
 import { UserEntity } from '../../users/entities';
 
 export const databaseEntities = [
@@ -8,4 +13,6 @@ export const databaseEntities = [
   VehicleModelEntity,
   ListingEntity,
   ImageEntity,
+  ListingFeatureEntity,
+  ListingFeatureSelectionEntity,
 ];
