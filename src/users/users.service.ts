@@ -1,9 +1,14 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { UserEntity } from './entities';
-import { CreateUserInput, SafeUser, UserRecord } from './types';
+import {
+  CreateUserInput,
+  SafeUser,
+  UpdateUserProfileInput,
+  UserRecord,
+} from './types';
 
 @Injectable()
 export class UsersService {
@@ -60,6 +65,39 @@ export class UsersService {
     return users.map((user) => this.toSafeUser(this.toUserRecord(user)));
   }
 
+  async getProfile(id: string): Promise<SafeUser> {
+    const user = await this.findById(id);
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    return this.toSafeUser(user);
+  }
+
+  async updateProfile(
+    id: string,
+    input: UpdateUserProfileInput,
+  ): Promise<SafeUser> {
+    const updates: Partial<UserEntity> = {};
+
+    if (input.name !== undefined) {
+      updates.name = input.name.trim();
+    }
+
+    if (input.phone !== undefined) {
+      const phone = input.phone.trim();
+
+      updates.phone = phone === '' ? null : phone;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await this.usersRepository.update(id, updates);
+    }
+
+    return this.getProfile(id);
+  }
+
   async updatePassword(id: string, passwordHash: string): Promise<void> {
     await this.usersRepository.update(id, { passwordHash });
   }
@@ -69,6 +107,7 @@ export class UsersService {
       id: user.id,
       email: user.email,
       name: user.name,
+      phone: user.phone,
       role: user.role,
     };
   }
@@ -87,6 +126,7 @@ export class UsersService {
       id: user.id,
       email: user.email,
       name: user.name,
+      phone: user.phone,
       password_hash: user.passwordHash,
       role: user.role,
       created_at: user.createdAt,

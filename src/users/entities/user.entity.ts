@@ -21,6 +21,9 @@ export class UserEntity {
   @Column({ type: 'text' })
   name: string;
 
+  @Column({ nullable: true, type: 'text' })
+  phone: string | null;
+
   @Column({ name: 'password_hash', type: 'text' })
   passwordHash: string;
 

@@ -10,4 +10,13 @@ describe('AppService', () => {
       version: '0.1.0',
     });
   });
+
+  it('returns backend version metadata', () => {
+    const service = new AppService();
+
+    expect(service.getVersion()).toEqual({
+      service: 'carauction-backend',
+      version: '0.1.0',
+    });
+  });
 });

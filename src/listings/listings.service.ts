@@ -15,7 +15,12 @@ import {
   UploadListingImagesDto,
 } from './dto';
 import { ImageEntity, ListingEntity } from './entities';
-import { Listing, ListingImage } from './types';
+import {
+  AdminListListingsInput,
+  Listing,
+  ListingImage,
+  ListingModerationStatus,
+} from './types';
 import { LocalImageStorageService } from './local-image-storage.service';
 import {
   ALLOWED_IMAGE_TYPES,
@@ -87,6 +92,98 @@ export class ListingsService {
     };
   }
 
+  async listMine(userId: string, query: ListListingsQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const offset = (page - 1) * limit;
+    const queryBuilder = this.createListingQuery()
+      .where('listing.userId = :userId', { userId })
+      .skip(offset)
+      .take(limit);
+
+    this.addFilter(queryBuilder, 'listing.brandId = :brandId', 'brandId', query.brandId);
+    this.addFilter(queryBuilder, 'listing.modelId = :modelId', 'modelId', query.modelId);
+    this.addFilter(queryBuilder, 'listing.fuel = :fuel', 'fuel', query.fuel);
+    this.addFilter(
+      queryBuilder,
+      'listing.transmission = :transmission',
+      'transmission',
+      query.transmission,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.location ILIKE :location',
+      'location',
+      query.location ? `%${query.location}%` : undefined,
+    );
+    this.addFilter(queryBuilder, 'listing.price >= :minPrice', 'minPrice', query.minPrice);
+    this.addFilter(queryBuilder, 'listing.price <= :maxPrice', 'maxPrice', query.maxPrice);
+    this.addFilter(queryBuilder, 'listing.year >= :minYear', 'minYear', query.minYear);
+    this.addFilter(queryBuilder, 'listing.year <= :maxYear', 'maxYear', query.maxYear);
+    this.addFilter(
+      queryBuilder,
+      'listing.mileageKm <= :maxMileage',
+      'maxMileage',
+      query.maxMileage,
+    );
+    this.addSearch(queryBuilder, query.search);
+    this.applySort(queryBuilder, query.sort);
+
+    const [listings, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      data: listings.map((listing) => this.toListing(listing)),
+      meta: {
+        page,
+        limit,
+        total,
+      },
+    };
+  }
+
+  async listForModeration(query: AdminListListingsInput) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const offset = (page - 1) * limit;
+    const queryBuilder = this.createListingQuery()
+      .where('listing.status = :status', { status: query.status ?? 'pending' })
+      .skip(offset)
+      .take(limit);
+
+    this.applySort(queryBuilder, 'newest');
+
+    const [listings, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      data: listings.map((listing) => this.toListing(listing)),
+      meta: {
+        page,
+        limit,
+        total,
+      },
+    };
+  }
+
+  async moderate(
+    id: string,
+    adminId: string,
+    status: ListingModerationStatus,
+  ): Promise<Listing> {
+    const listing = await this.listingsRepository.findOne({ where: { id } });
+
+    if (!listing) {
+      throw new NotFoundException('Listing not found.');
+    }
+
+    await this.listingsRepository.update(id, {
+      moderatedAt: new Date(),
+      moderatedById: adminId,
+      status,
+    });
+
+    return this.findAny(id);
+  }
+
   async findPublished(id: string): Promise<Listing> {
     const listing = await this.createListingQuery()
       .where('listing.id = :id', { id })
@@ -123,7 +220,7 @@ export class ListingsService {
         contactEmail: input.contactEmail ?? null,
         price: String(input.price),
         currency: input.currency ?? 'EUR',
-        status: input.status ?? 'published',
+        status: 'pending',
       }),
     );
 
@@ -151,11 +248,9 @@ export class ListingsService {
     return this.findOwned(id, userId);
   }
 
-  async remove(id: string, userId: string) {
+  async remove(id: string, userId: string): Promise<void> {
     await this.ensureOwner(id, userId);
     await this.listingsRepository.delete(id);
-
-    return { message: 'Listing deleted successfully.' };
   }
 
   async uploadImages(
@@ -205,6 +300,18 @@ export class ListingsService {
     const listing = await this.createListingQuery()
       .where('listing.id = :id', { id })
       .andWhere('listing.userId = :userId', { userId })
+      .getOne();
+
+    if (!listing) {
+      throw new NotFoundException('Listing not found.');
+    }
+
+    return this.toListing(listing);
+  }
+
+  private async findAny(id: string): Promise<Listing> {
+    const listing = await this.createListingQuery()
+      .where('listing.id = :id', { id })
       .getOne();
 
     if (!listing) {
@@ -341,8 +448,6 @@ export class ListingsService {
       input.price === undefined ? undefined : String(input.price),
     );
     this.addUpdate(updates, 'currency', input.currency);
-    this.addUpdate(updates, 'status', input.status);
-
     return updates;
   }
 
@@ -384,6 +489,8 @@ export class ListingsService {
       price: Number(listing.price),
       currency: listing.currency,
       status: listing.status,
+      moderatedAt: listing.moderatedAt?.toISOString() ?? null,
+      moderatedById: listing.moderatedById,
       createdAt: listing.createdAt.toISOString(),
       updatedAt: listing.updatedAt.toISOString(),
       images: images.map((image) => this.toListingImage(image)),

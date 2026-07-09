@@ -15,4 +15,9 @@ export class AppController {
   getHealthCheck() {
     return this.appService.getHealth();
   }
+
+  @Get('version')
+  getVersion() {
+    return this.appService.getVersion();
+  }
 }

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 
-const BACKEND_VERSION = '0.1.0';
+import * as packageJson from '../package.json';
 
 @Injectable()
 export class AppService {
@@ -8,7 +8,14 @@ export class AppService {
     return {
       status: 'ok',
       service: 'carauction-backend',
-      version: BACKEND_VERSION,
+      version: packageJson.version,
+    };
+  }
+
+  getVersion() {
+    return {
+      service: 'carauction-backend',
+      version: packageJson.version,
     };
   }
 }
