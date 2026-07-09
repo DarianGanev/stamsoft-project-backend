@@ -1,27 +1,21 @@
+import { ListingFeatureCategory } from './listing-feature.types';
+
 export type ListingStatus =
-  | 'pending'
-  | 'published'
-  | 'rejected'
-  | 'draft'
-  | 'sold'
-  | 'archived';
+  'pending' | 'published' | 'rejected' | 'draft' | 'sold' | 'archived';
 export type ListingModerationStatus = 'published' | 'rejected';
 export type FuelType =
-  | 'gasoline'
-  | 'diesel'
-  | 'hybrid'
-  | 'electric'
-  | 'lpg'
-  | 'cng'
-  | 'other';
+  'gasoline' | 'diesel' | 'hybrid' | 'electric' | 'lpg' | 'cng' | 'other';
 export type TransmissionType = 'manual' | 'automatic' | 'semi_automatic';
 export type ListingSort =
-  | 'newest'
-  | 'price-low'
-  | 'price-high'
-  | 'price_asc'
-  | 'price_desc';
+  'newest' | 'price-low' | 'price-high' | 'price_asc' | 'price_desc';
 export type Currency = 'EUR' | 'BGN';
+
+export interface ListingSelectedFeature {
+  id: string;
+  key: string;
+  category: ListingFeatureCategory;
+  label: string;
+}
 
 export interface ListingImage {
   id: string;
@@ -59,6 +53,7 @@ export interface Listing {
   updatedAt: string;
   images: ListingImage[];
   primaryImageUrl: string | null;
+  features: ListingSelectedFeature[];
 }
 
 export interface ListingRecord {

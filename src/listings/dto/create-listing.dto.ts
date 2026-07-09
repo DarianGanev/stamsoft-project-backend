@@ -1,5 +1,6 @@
 import {
   IsEmail,
+  IsArray,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -11,11 +12,7 @@ import {
   Min,
 } from 'class-validator';
 
-import {
-  CURRENCIES,
-  FUEL_TYPES,
-  TRANSMISSION_TYPES,
-} from '../constants';
+import { CURRENCIES, FUEL_TYPES, TRANSMISSION_TYPES } from '../constants';
 import { Currency, FuelType, TransmissionType } from '../types';
 
 export class CreateListingDto {
@@ -85,4 +82,9 @@ export class CreateListingDto {
   @IsOptional()
   @IsIn(CURRENCIES)
   currency?: Currency;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  featureKeys?: string[];
 }

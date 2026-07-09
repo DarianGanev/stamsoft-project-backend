@@ -20,7 +20,9 @@ import {
   Listing,
   ListingImage,
   ListingModerationStatus,
+  ListingSelectedFeature,
 } from './types';
+import { ListingFeaturesService } from './listing-features.service';
 import { LocalImageStorageService } from './local-image-storage.service';
 import {
   ALLOWED_IMAGE_TYPES,
@@ -41,6 +43,7 @@ export class ListingsService {
     @InjectRepository(VehicleModelEntity)
     private readonly modelsRepository: Repository<VehicleModelEntity>,
     private readonly imageStorageService: LocalImageStorageService,
+    private readonly listingFeaturesService: ListingFeaturesService,
   ) {}
 
   async list(query: ListListingsQueryDto) {
@@ -52,8 +55,18 @@ export class ListingsService {
       .skip(offset)
       .take(limit);
 
-    this.addFilter(queryBuilder, 'listing.brandId = :brandId', 'brandId', query.brandId);
-    this.addFilter(queryBuilder, 'listing.modelId = :modelId', 'modelId', query.modelId);
+    this.addFilter(
+      queryBuilder,
+      'listing.brandId = :brandId',
+      'brandId',
+      query.brandId,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.modelId = :modelId',
+      'modelId',
+      query.modelId,
+    );
     this.addFilter(queryBuilder, 'listing.fuel = :fuel', 'fuel', query.fuel);
     this.addFilter(
       queryBuilder,
@@ -67,10 +80,30 @@ export class ListingsService {
       'location',
       query.location ? `%${query.location}%` : undefined,
     );
-    this.addFilter(queryBuilder, 'listing.price >= :minPrice', 'minPrice', query.minPrice);
-    this.addFilter(queryBuilder, 'listing.price <= :maxPrice', 'maxPrice', query.maxPrice);
-    this.addFilter(queryBuilder, 'listing.year >= :minYear', 'minYear', query.minYear);
-    this.addFilter(queryBuilder, 'listing.year <= :maxYear', 'maxYear', query.maxYear);
+    this.addFilter(
+      queryBuilder,
+      'listing.price >= :minPrice',
+      'minPrice',
+      query.minPrice,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.price <= :maxPrice',
+      'maxPrice',
+      query.maxPrice,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.year >= :minYear',
+      'minYear',
+      query.minYear,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.year <= :maxYear',
+      'maxYear',
+      query.maxYear,
+    );
     this.addFilter(
       queryBuilder,
       'listing.mileageKm <= :maxMileage',
@@ -101,8 +134,18 @@ export class ListingsService {
       .skip(offset)
       .take(limit);
 
-    this.addFilter(queryBuilder, 'listing.brandId = :brandId', 'brandId', query.brandId);
-    this.addFilter(queryBuilder, 'listing.modelId = :modelId', 'modelId', query.modelId);
+    this.addFilter(
+      queryBuilder,
+      'listing.brandId = :brandId',
+      'brandId',
+      query.brandId,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.modelId = :modelId',
+      'modelId',
+      query.modelId,
+    );
     this.addFilter(queryBuilder, 'listing.fuel = :fuel', 'fuel', query.fuel);
     this.addFilter(
       queryBuilder,
@@ -116,10 +159,30 @@ export class ListingsService {
       'location',
       query.location ? `%${query.location}%` : undefined,
     );
-    this.addFilter(queryBuilder, 'listing.price >= :minPrice', 'minPrice', query.minPrice);
-    this.addFilter(queryBuilder, 'listing.price <= :maxPrice', 'maxPrice', query.maxPrice);
-    this.addFilter(queryBuilder, 'listing.year >= :minYear', 'minYear', query.minYear);
-    this.addFilter(queryBuilder, 'listing.year <= :maxYear', 'maxYear', query.maxYear);
+    this.addFilter(
+      queryBuilder,
+      'listing.price >= :minPrice',
+      'minPrice',
+      query.minPrice,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.price <= :maxPrice',
+      'maxPrice',
+      query.maxPrice,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.year >= :minYear',
+      'minYear',
+      query.minYear,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.year <= :maxYear',
+      'maxYear',
+      query.maxYear,
+    );
     this.addFilter(
       queryBuilder,
       'listing.mileageKm <= :maxMileage',
@@ -224,6 +287,13 @@ export class ListingsService {
       }),
     );
 
+    if (input.featureKeys !== undefined) {
+      await this.listingFeaturesService.syncListingFeatures(
+        listing.id,
+        input.featureKeys,
+      );
+    }
+
     return this.findOwned(listing.id, userId);
   }
 
@@ -243,6 +313,13 @@ export class ListingsService {
 
     if (Object.keys(updates).length > 0) {
       await this.listingsRepository.update(id, updates);
+    }
+
+    if (input.featureKeys !== undefined) {
+      await this.listingFeaturesService.syncListingFeatures(
+        id,
+        input.featureKeys,
+      );
     }
 
     return this.findOwned(id, userId);
@@ -321,7 +398,10 @@ export class ListingsService {
     return this.toListing(listing);
   }
 
-  private async ensureOwner(id: string, userId: string): Promise<ListingEntity> {
+  private async ensureOwner(
+    id: string,
+    userId: string,
+  ): Promise<ListingEntity> {
     const listing = await this.listingsRepository.findOne({ where: { id } });
 
     if (!listing) {
@@ -360,7 +440,9 @@ export class ListingsService {
       .createQueryBuilder('listing')
       .innerJoinAndSelect('listing.brand', 'brand')
       .innerJoinAndSelect('listing.model', 'model')
-      .leftJoinAndSelect('listing.images', 'image');
+      .leftJoinAndSelect('listing.images', 'image')
+      .leftJoinAndSelect('listing.featureSelections', 'featureSelection')
+      .leftJoinAndSelect('featureSelection.feature', 'feature');
   }
 
   private addFilter(
@@ -495,7 +577,24 @@ export class ListingsService {
       updatedAt: listing.updatedAt.toISOString(),
       images: images.map((image) => this.toListingImage(image)),
       primaryImageUrl: images[0]?.imageUrl ?? null,
+      features: this.toListingFeatures(listing),
     };
+  }
+
+  private toListingFeatures(listing: ListingEntity): ListingSelectedFeature[] {
+    const selections = listing.featureSelections ?? [];
+
+    return selections
+      .filter((selection) => selection.feature)
+      .sort(
+        (first, second) => first.feature.sortOrder - second.feature.sortOrder,
+      )
+      .map((selection) => ({
+        id: selection.feature.id,
+        key: selection.feature.key,
+        category: selection.feature.category,
+        label: selection.feature.label,
+      }));
   }
 
   private toListingImage(image: ImageEntity): ListingImage {
