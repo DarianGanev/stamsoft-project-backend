@@ -5,7 +5,13 @@ import {
 } from '@nestjs/common';
 
 import { BrandEntity, VehicleModelEntity } from '../brands/entities';
-import { ImageEntity, ListingEntity } from './entities';
+import {
+  ImageEntity,
+  ListingEntity,
+  ListingFeatureEntity,
+  ListingFeatureSelectionEntity,
+} from './entities';
+import { ListingFeaturesService } from './listing-features.service';
 import { ListingsService } from './listings.service';
 
 class MockListingQueryBuilder {
@@ -46,11 +52,15 @@ describe('ListingsService', () => {
     const imageStorageService = {
       save: jest.fn(),
     };
+    const listingFeaturesService = {
+      syncListingFeatures: jest.fn(),
+    };
 
     return {
       brandsRepository,
       imagesRepository,
       imageStorageService,
+      listingFeaturesService,
       listingsRepository,
       modelsRepository,
       queryBuilder,
@@ -60,11 +70,14 @@ describe('ListingsService', () => {
         brandsRepository as never,
         modelsRepository as never,
         imageStorageService as never,
+        listingFeaturesService as unknown as ListingFeaturesService,
       ),
     };
   }
 
-  function listingEntity(overrides: Partial<ListingEntity> = {}): ListingEntity {
+  function listingEntity(
+    overrides: Partial<ListingEntity> = {},
+  ): ListingEntity {
     return {
       id: 'listing-1',
       userId: 'user-1',
@@ -113,6 +126,21 @@ describe('ListingsService', () => {
           createdAt: new Date('2026-07-01T10:02:00.000Z'),
         } as ImageEntity,
       ],
+      featureSelections: [
+        {
+          id: 'selection-1',
+          listingId: 'listing-1',
+          featureId: 'feature-1',
+          createdAt: new Date('2026-07-01T10:03:00.000Z'),
+          feature: {
+            id: 'feature-1',
+            key: 'abs',
+            category: 'safety',
+            label: 'Антиблокираща система',
+            sortOrder: 30,
+          } as ListingFeatureEntity,
+        } as ListingFeatureSelectionEntity,
+      ],
       ...overrides,
     } as ListingEntity;
   }
@@ -148,6 +176,14 @@ describe('ListingsService', () => {
           powerHp: 190,
           primaryImageUrl: '/uploads/primary.webp',
           price: 18000,
+          features: [
+            {
+              id: 'feature-1',
+              key: 'abs',
+              category: 'safety',
+              label: 'Антиблокираща система',
+            },
+          ],
         }),
       ],
       meta: { page: 2, limit: 10, total: 1 },
@@ -206,8 +242,14 @@ describe('ListingsService', () => {
   });
 
   it('creates a listing only when brand and model pair is valid', async () => {
-    const { brandsRepository, listingsRepository, modelsRepository, queryBuilder, service } =
-      createService();
+    const {
+      brandsRepository,
+      listingFeaturesService,
+      listingsRepository,
+      modelsRepository,
+      queryBuilder,
+      service,
+    } = createService();
     const listing = listingEntity();
 
     brandsRepository.exists.mockResolvedValue(true);
@@ -228,6 +270,7 @@ describe('ListingsService', () => {
         transmission: 'automatic',
         location: 'Sofia',
         price: 18000,
+        featureKeys: ['abs', 'parking_sensors'],
       }),
     ).resolves.toMatchObject({
       id: 'listing-1',
@@ -248,6 +291,10 @@ describe('ListingsService', () => {
         powerHp: 190,
         status: 'pending',
       }),
+    );
+    expect(listingFeaturesService.syncListingFeatures).toHaveBeenCalledWith(
+      'listing-1',
+      ['abs', 'parking_sensors'],
     );
   });
 
@@ -280,7 +327,9 @@ describe('ListingsService', () => {
   it('moderates a listing with admin id and timestamp', async () => {
     const { listingsRepository, queryBuilder, service } = createService();
 
-    listingsRepository.findOne.mockResolvedValue(listingEntity({ status: 'pending' }));
+    listingsRepository.findOne.mockResolvedValue(
+      listingEntity({ status: 'pending' }),
+    );
     queryBuilder.getOne.mockResolvedValue(
       listingEntity({
         moderatedAt: new Date('2026-07-06T10:00:00.000Z'),
@@ -328,8 +377,14 @@ describe('ListingsService', () => {
   });
 
   it('updates only provided fields and validates changed brand/model pair', async () => {
-    const { brandsRepository, listingsRepository, modelsRepository, queryBuilder, service } =
-      createService();
+    const {
+      brandsRepository,
+      listingFeaturesService,
+      listingsRepository,
+      modelsRepository,
+      queryBuilder,
+      service,
+    } = createService();
 
     listingsRepository.findOne.mockResolvedValue(listingEntity());
     brandsRepository.exists.mockResolvedValue(true);
@@ -346,6 +401,7 @@ describe('ListingsService', () => {
         modelId: 'model-2',
         title: 'Updated title',
         engineLiters: 3,
+        featureKeys: ['leather_interior'],
       }),
     ).resolves.toMatchObject({
       modelId: 'model-2',
@@ -360,6 +416,10 @@ describe('ListingsService', () => {
       title: 'Updated title',
       engineLiters: '3',
     });
+    expect(listingFeaturesService.syncListingFeatures).toHaveBeenCalledWith(
+      'listing-1',
+      ['leather_interior'],
+    );
   });
 
   it('blocks users from modifying listings they do not own', async () => {
