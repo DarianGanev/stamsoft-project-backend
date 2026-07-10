@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 
 import {
+  ListingEntity,
   ListingFeatureEntity,
   ListingFeatureSelectionEntity,
 } from './entities';
@@ -14,6 +15,7 @@ describe('ListingFeaturesService', () => {
     const selectionsRepository = {
       create: jest.fn((input: unknown) => input),
       delete: jest.fn(),
+      find: jest.fn(),
       save: jest.fn(),
     };
     const entityManager = {
@@ -34,7 +36,10 @@ describe('ListingFeaturesService', () => {
       entityManager,
       featuresRepository,
       selectionsRepository,
-      service: new ListingFeaturesService(featuresRepository as never),
+      service: new ListingFeaturesService(
+        featuresRepository as never,
+        selectionsRepository as never,
+      ),
     };
   }
 
@@ -75,6 +80,17 @@ describe('ListingFeaturesService', () => {
     });
   });
 
+  it('caches grouped listing features in memory', async () => {
+    const { featuresRepository, service } = createService();
+
+    featuresRepository.find.mockResolvedValue([]);
+
+    await service.listGrouped();
+    await service.listGrouped();
+
+    expect(featuresRepository.find).toHaveBeenCalledTimes(1);
+  });
+
   it('syncs selected listing features', async () => {
     const { entityManager, featuresRepository, selectionsRepository, service } =
       createService();
@@ -113,6 +129,24 @@ describe('ListingFeaturesService', () => {
         entityManager as never,
       ),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('hydrates listing features in one query for a list of listings', async () => {
+    const { selectionsRepository, service } = createService();
+    const firstListing = { id: 'listing-1' } as ListingEntity;
+    const secondListing = { id: 'listing-2' } as ListingEntity;
+    const selection = {
+      listingId: 'listing-1',
+      feature: featureEntity({ id: 'feature-1', key: 'abs' }),
+    } as ListingFeatureSelectionEntity;
+
+    selectionsRepository.find.mockResolvedValue([selection]);
+
+    await service.populateListingFeatures([firstListing, secondListing]);
+
+    expect(selectionsRepository.find).toHaveBeenCalledTimes(1);
+    expect(firstListing.featureSelections).toEqual([selection]);
+    expect(secondListing.featureSelections).toEqual([]);
   });
 
   function featureEntity(

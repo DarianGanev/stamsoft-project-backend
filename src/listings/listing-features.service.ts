@@ -8,6 +8,7 @@ import {
   LISTING_FEATURE_CATEGORY_LABELS,
 } from './constants';
 import {
+  ListingEntity,
   ListingFeatureEntity,
   ListingFeatureSelectionEntity,
 } from './entities';
@@ -15,17 +16,25 @@ import { GroupedListingFeatures } from './types';
 
 @Injectable()
 export class ListingFeaturesService {
+  private groupedFeaturesCache: GroupedListingFeatures[] | null = null;
+
   constructor(
     @InjectRepository(ListingFeatureEntity)
     private readonly featuresRepository: Repository<ListingFeatureEntity>,
+    @InjectRepository(ListingFeatureSelectionEntity)
+    private readonly selectionsRepository: Repository<ListingFeatureSelectionEntity>,
   ) {}
 
   async listGrouped(): Promise<GroupedListingFeatures[]> {
+    if (this.groupedFeaturesCache) {
+      return this.groupedFeaturesCache;
+    }
+
     const features = await this.featuresRepository.find({
       order: { sortOrder: 'ASC' },
     });
 
-    return LISTING_FEATURE_CATEGORIES.map((category) => ({
+    this.groupedFeaturesCache = LISTING_FEATURE_CATEGORIES.map((category) => ({
       category,
       label: LISTING_FEATURE_CATEGORY_LABELS[category],
       features: features
@@ -38,6 +47,8 @@ export class ListingFeaturesService {
           sortOrder: feature.sortOrder,
         })),
     }));
+
+    return this.groupedFeaturesCache;
   }
 
   async syncListingFeatures(
@@ -69,6 +80,7 @@ export class ListingFeaturesService {
       );
     }
 
+    // An empty array clears all extras; an omitted featureKeys field skips this method.
     await selectionsRepository.delete({ listingId });
 
     if (features.length === 0) {
@@ -83,5 +95,33 @@ export class ListingFeaturesService {
         }),
       ),
     );
+  }
+
+  async populateListingFeatures(listings: ListingEntity[]): Promise<void> {
+    const listingIds = [...new Set(listings.map((listing) => listing.id))];
+
+    if (listingIds.length === 0) {
+      return;
+    }
+
+    const selections = await this.selectionsRepository.find({
+      where: { listingId: In(listingIds) },
+      relations: { feature: true },
+    });
+    const selectionsByListingId = new Map<
+      string,
+      ListingFeatureSelectionEntity[]
+    >();
+
+    for (const selection of selections) {
+      const listingSelections =
+        selectionsByListingId.get(selection.listingId) ?? [];
+      listingSelections.push(selection);
+      selectionsByListingId.set(selection.listingId, listingSelections);
+    }
+
+    for (const listing of listings) {
+      listing.featureSelections = selectionsByListingId.get(listing.id) ?? [];
+    }
   }
 }

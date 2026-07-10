@@ -69,7 +69,9 @@ describe('ListingsService', () => {
     const imageStorageService = {
       save: jest.fn(),
     };
+    const populateListingFeatures = jest.fn();
     const listingFeaturesService = {
+      populateListingFeatures,
       syncListingFeatures: jest.fn(),
     };
 
@@ -79,6 +81,7 @@ describe('ListingsService', () => {
       imagesRepository,
       imageStorageService,
       listingFeaturesService,
+      populateListingFeatures,
       listingsRepository,
       modelsRepository,
       queryBuilder,
@@ -169,7 +172,7 @@ describe('ListingsService', () => {
   }
 
   it('lists published listings with combined filters, search, pagination, and sort', async () => {
-    const { queryBuilder, service } = createService();
+    const { populateListingFeatures, queryBuilder, service } = createService();
     const listing = listingEntity();
 
     queryBuilder.getManyAndCount.mockResolvedValue([[listing], 1]);
@@ -236,6 +239,7 @@ describe('ListingsService', () => {
       'listing.user',
       'user',
     );
+    expect(populateListingFeatures).toHaveBeenCalledWith([listing]);
   });
 
   it('lists only listings owned by the authenticated user', async () => {

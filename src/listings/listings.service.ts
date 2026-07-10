@@ -116,6 +116,7 @@ export class ListingsService {
     this.applySort(queryBuilder, query.sort);
 
     const [listings, total] = await queryBuilder.getManyAndCount();
+    await this.listingFeaturesService.populateListingFeatures(listings);
 
     return {
       data: listings.map((listing) => this.toListing(listing)),
@@ -195,6 +196,7 @@ export class ListingsService {
     this.applySort(queryBuilder, query.sort);
 
     const [listings, total] = await queryBuilder.getManyAndCount();
+    await this.listingFeaturesService.populateListingFeatures(listings);
 
     return {
       data: listings.map((listing) => this.toListing(listing)),
@@ -218,6 +220,7 @@ export class ListingsService {
     this.applySort(queryBuilder, 'newest');
 
     const [listings, total] = await queryBuilder.getManyAndCount();
+    await this.listingFeaturesService.populateListingFeatures(listings);
 
     return {
       data: listings.map((listing) => this.toListing(listing)),
@@ -258,6 +261,8 @@ export class ListingsService {
     if (!listing) {
       throw new NotFoundException('Listing not found.');
     }
+
+    await this.listingFeaturesService.populateListingFeatures([listing]);
 
     return this.toListing(listing);
   }
@@ -398,6 +403,8 @@ export class ListingsService {
       throw new NotFoundException('Listing not found.');
     }
 
+    await this.listingFeaturesService.populateListingFeatures([listing]);
+
     return this.toListing(listing);
   }
 
@@ -409,6 +416,8 @@ export class ListingsService {
     if (!listing) {
       throw new NotFoundException('Listing not found.');
     }
+
+    await this.listingFeaturesService.populateListingFeatures([listing]);
 
     return this.toListing(listing);
   }
@@ -456,9 +465,7 @@ export class ListingsService {
       .innerJoinAndSelect('listing.brand', 'brand')
       .innerJoinAndSelect('listing.model', 'model')
       .innerJoinAndSelect('listing.user', 'user')
-      .leftJoinAndSelect('listing.images', 'image')
-      .leftJoinAndSelect('listing.featureSelections', 'featureSelection')
-      .leftJoinAndSelect('featureSelection.feature', 'feature');
+      .leftJoinAndSelect('listing.images', 'image');
   }
 
   private addFilter(

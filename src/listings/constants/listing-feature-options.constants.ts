@@ -517,3 +517,5 @@ export const LISTING_FEATURE_OPTIONS = [
     sortOrder: 6070,
   },
 ] as const satisfies readonly ListingFeatureOption[];
+
+export const MAX_LISTING_FEATURES_PER_LISTING = LISTING_FEATURE_OPTIONS.length;

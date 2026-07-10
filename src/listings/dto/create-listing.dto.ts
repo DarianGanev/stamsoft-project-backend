@@ -1,6 +1,7 @@
 import {
-  IsEmail,
+  ArrayMaxSize,
   IsArray,
+  IsEmail,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -12,7 +13,12 @@ import {
   Min,
 } from 'class-validator';
 
-import { CURRENCIES, FUEL_TYPES, TRANSMISSION_TYPES } from '../constants';
+import {
+  CURRENCIES,
+  FUEL_TYPES,
+  MAX_LISTING_FEATURES_PER_LISTING,
+  TRANSMISSION_TYPES,
+} from '../constants';
 import { Currency, FuelType, TransmissionType } from '../types';
 
 export class CreateListingDto {
@@ -85,6 +91,7 @@ export class CreateListingDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(MAX_LISTING_FEATURES_PER_LISTING)
   @IsString({ each: true })
   featureKeys?: string[];
 }
