@@ -1,7 +1,12 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import { DEFAULT_USER_ROLE } from './constants';
 import { UserEntity } from './entities';
 import {
   CreateUserInput,
@@ -24,7 +29,7 @@ export class UsersService {
           email: input.email.toLowerCase(),
           name: input.name,
           passwordHash: input.passwordHash,
-          role: input.role ?? 'user',
+          role: input.role ?? DEFAULT_USER_ROLE,
         }),
       );
 
