@@ -44,9 +44,11 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<UserRecord | null> {
-    const user = await this.usersRepository.findOne({
-      where: { email: email.toLowerCase() },
-    });
+    const user = await this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.email = :email', { email: email.toLowerCase() })
+      .getOne();
 
     return user ? this.toUserRecord(user) : null;
   }

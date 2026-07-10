@@ -10,13 +10,24 @@ describe('UsersService', () => {
     const repository = {
       count: jest.fn(),
       create: jest.fn((input: Partial<UserEntity>) => input),
+      createQueryBuilder: jest.fn(),
       find: jest.fn(),
       findOne: jest.fn(),
       save: jest.fn(),
       update: jest.fn(),
     };
+    const queryBuilder = {
+      addSelect: jest.fn(),
+      getOne: jest.fn(),
+      where: jest.fn(),
+    };
+
+    queryBuilder.addSelect.mockReturnValue(queryBuilder);
+    queryBuilder.where.mockReturnValue(queryBuilder);
+    repository.createQueryBuilder.mockReturnValue(queryBuilder);
 
     return {
+      queryBuilder,
       repository,
       service: new UsersService(repository as never),
     };
@@ -81,12 +92,15 @@ describe('UsersService', () => {
   });
 
   it('finds users by normalized email and id', async () => {
-    const { repository, service } = createService();
+    const { queryBuilder, repository, service } = createService();
     const user = userEntity();
 
-    repository.findOne.mockResolvedValueOnce(user).mockResolvedValueOnce(user);
+    queryBuilder.getOne.mockResolvedValue(user);
+    repository.findOne.mockResolvedValue(user);
 
-    await expect(service.findByEmail('DRIVER@example.com')).resolves.toMatchObject({
+    await expect(
+      service.findByEmail('DRIVER@example.com'),
+    ).resolves.toMatchObject({
       email: 'driver@example.com',
       password_hash: 'password-hash',
     });
@@ -95,10 +109,12 @@ describe('UsersService', () => {
       email: 'driver@example.com',
     });
 
-    expect(repository.findOne).toHaveBeenNthCalledWith(1, {
-      where: { email: 'driver@example.com' },
+    expect(repository.createQueryBuilder).toHaveBeenCalledWith('user');
+    expect(queryBuilder.addSelect).toHaveBeenCalledWith('user.passwordHash');
+    expect(queryBuilder.where).toHaveBeenCalledWith('user.email = :email', {
+      email: 'driver@example.com',
     });
-    expect(repository.findOne).toHaveBeenNthCalledWith(2, {
+    expect(repository.findOne).toHaveBeenCalledWith({
       where: { id: 'user-1' },
     });
   });

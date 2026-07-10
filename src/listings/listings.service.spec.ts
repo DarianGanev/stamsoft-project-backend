@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 
 import { BrandEntity, VehicleModelEntity } from '../brands/entities';
+import { UserEntity } from '../users/entities';
 import {
   ImageEntity,
   ListingEntity,
@@ -120,6 +121,10 @@ describe('ListingsService', () => {
       moderatedById: null,
       createdAt: new Date('2026-07-01T10:00:00.000Z'),
       updatedAt: new Date('2026-07-02T10:00:00.000Z'),
+      user: {
+        id: 'user-1',
+        createdAt: new Date('2025-01-10T10:00:00.000Z'),
+      } as UserEntity,
       brand: { id: 'brand-1', name: 'BMW' } as BrandEntity,
       model: {
         id: 'model-1',
@@ -194,6 +199,7 @@ describe('ListingsService', () => {
           powerHp: 190,
           primaryImageUrl: '/uploads/primary.webp',
           price: 18000,
+          sellerCreatedAt: '2025-01-10T10:00:00.000Z',
           features: [
             {
               id: 'feature-1',
@@ -225,6 +231,10 @@ describe('ListingsService', () => {
     expect(queryBuilder.addOrderBy).toHaveBeenCalledWith(
       'listing.createdAt',
       'DESC',
+    );
+    expect(queryBuilder.innerJoinAndSelect).toHaveBeenCalledWith(
+      'listing.user',
+      'user',
     );
   });
 
