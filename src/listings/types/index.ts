@@ -15,4 +15,5 @@ export type {
   GroupedListingFeatures,
   ListingFeature,
   ListingFeatureCategory,
+  ListingFeatureOption,
 } from './listing-feature.types';

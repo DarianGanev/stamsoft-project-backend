@@ -1,4 +1,4 @@
-import { ListingFeatureCategory } from '../types';
+import type { ListingFeatureCategory, ListingFeatureOption } from '../types';
 
 export const LISTING_FEATURE_CATEGORY_LABELS: Record<
   ListingFeatureCategory,
@@ -13,7 +13,7 @@ export const LISTING_FEATURE_CATEGORY_LABELS: Record<
   specialized: 'Специализирани',
 };
 
-export const LISTING_FEATURE_CATEGORIES: ListingFeatureCategory[] = [
+export const LISTING_FEATURE_CATEGORIES = [
   'safety',
   'comfort',
   'other',
@@ -21,14 +21,9 @@ export const LISTING_FEATURE_CATEGORIES: ListingFeatureCategory[] = [
   'protection',
   'interior',
   'specialized',
-];
+] as const satisfies readonly ListingFeatureCategory[];
 
-export const LISTING_FEATURE_OPTIONS: {
-  key: string;
-  category: ListingFeatureCategory;
-  label: string;
-  sortOrder: number;
-}[] = [
+export const LISTING_FEATURE_OPTIONS = [
   {
     key: 'gps_tracking',
     category: 'safety',
@@ -521,4 +516,4 @@ export const LISTING_FEATURE_OPTIONS: {
     label: 'Хомологация N1',
     sortOrder: 6070,
   },
-];
+] as const satisfies readonly ListingFeatureOption[];

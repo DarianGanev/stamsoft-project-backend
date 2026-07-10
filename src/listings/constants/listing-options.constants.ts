@@ -32,6 +32,8 @@ export const LISTING_STATUSES: readonly ListingStatus[] = [
   'archived',
 ] as const;
 
+export const DEFAULT_LISTING_STATUS: ListingStatus = 'pending';
+
 export const LISTING_MODERATION_STATUSES: readonly ListingModerationStatus[] = [
   'published',
   'rejected',

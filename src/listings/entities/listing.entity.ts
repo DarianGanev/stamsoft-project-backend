@@ -13,6 +13,12 @@ import {
 
 import { BrandEntity, VehicleModelEntity } from '../../brands/entities';
 import { UserEntity } from '../../users/entities';
+import {
+  DEFAULT_LISTING_STATUS,
+  FUEL_TYPES,
+  LISTING_STATUSES,
+  TRANSMISSION_TYPES,
+} from '../constants';
 import { Currency, FuelType, ListingStatus, TransmissionType } from '../types';
 import { ImageEntity } from './image.entity';
 import { ListingFeatureSelectionEntity } from './listing-feature-selection.entity';
@@ -76,7 +82,7 @@ export class ListingEntity {
   engineLiters: string | null;
 
   @Column({
-    enum: ['gasoline', 'diesel', 'hybrid', 'electric', 'lpg', 'cng', 'other'],
+    enum: [...FUEL_TYPES],
     enumName: 'fuel_type',
     nullable: true,
     type: 'enum',
@@ -84,7 +90,7 @@ export class ListingEntity {
   fuel: FuelType | null;
 
   @Column({
-    enum: ['manual', 'automatic', 'semi_automatic'],
+    enum: [...TRANSMISSION_TYPES],
     enumName: 'transmission_type',
     nullable: true,
     type: 'enum',
@@ -110,9 +116,9 @@ export class ListingEntity {
   currency: Currency;
 
   @Column({
-    enum: ['pending', 'published', 'rejected', 'draft', 'sold', 'archived'],
+    enum: [...LISTING_STATUSES],
     enumName: 'listing_status',
-    default: 'pending',
+    default: DEFAULT_LISTING_STATUS,
     type: 'enum',
   })
   status: ListingStatus;

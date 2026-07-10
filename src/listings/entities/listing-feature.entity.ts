@@ -8,7 +8,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import { ListingFeatureCategory } from '../types';
+import { LISTING_FEATURE_CATEGORIES } from '../constants';
+import type { ListingFeatureCategory } from '../types';
 import { ListingFeatureSelectionEntity } from './listing-feature-selection.entity';
 
 @Entity({ name: 'listing_features' })
@@ -22,15 +23,7 @@ export class ListingFeatureEntity {
   key: string;
 
   @Column({
-    enum: [
-      'safety',
-      'comfort',
-      'other',
-      'exterior',
-      'protection',
-      'interior',
-      'specialized',
-    ],
+    enum: [...LISTING_FEATURE_CATEGORIES],
     enumName: 'listing_feature_category',
     type: 'enum',
   })
