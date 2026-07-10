@@ -15,11 +15,17 @@ import {
 
 import {
   CURRENCIES,
+  EMISSION_STANDARDS,
   FUEL_TYPES,
   MAX_LISTING_FEATURES_PER_LISTING,
   TRANSMISSION_TYPES,
 } from '../constants';
-import { Currency, FuelType, TransmissionType } from '../types';
+import {
+  Currency,
+  EmissionStandard,
+  FuelType,
+  TransmissionType,
+} from '../types';
 
 export class CreateListingDto {
   @IsUUID()
@@ -56,6 +62,10 @@ export class CreateListingDto {
   @IsNumber()
   @Min(0)
   engineLiters?: number;
+
+  @IsOptional()
+  @IsIn(EMISSION_STANDARDS)
+  emissionStandard?: EmissionStandard;
 
   @IsOptional()
   @IsIn(FUEL_TYPES)

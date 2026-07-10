@@ -286,6 +286,7 @@ export class ListingsService {
             input.engineLiters === undefined
               ? null
               : String(input.engineLiters),
+          emissionStandard: input.emissionStandard ?? null,
           fuel: input.fuel ?? null,
           transmission: input.transmission ?? null,
           location: input.location ?? null,
@@ -541,6 +542,7 @@ export class ListingsService {
       'engineLiters',
       input.engineLiters === undefined ? undefined : String(input.engineLiters),
     );
+    this.addUpdate(updates, 'emissionStandard', input.emissionStandard);
     this.addUpdate(updates, 'fuel', input.fuel);
     this.addUpdate(updates, 'transmission', input.transmission);
     this.addUpdate(updates, 'location', input.location);
@@ -585,6 +587,7 @@ export class ListingsService {
       powerHp: listing.powerHp,
       engineLiters:
         listing.engineLiters === null ? null : Number(listing.engineLiters),
+      emissionStandard: listing.emissionStandard,
       fuel: listing.fuel,
       transmission: listing.transmission,
       location: listing.location,

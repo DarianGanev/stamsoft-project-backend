@@ -1,6 +1,7 @@
 export type {
   AdminListListingsInput,
   Currency,
+  EmissionStandard,
   FuelType,
   Listing,
   ListingImage,

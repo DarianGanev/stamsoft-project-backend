@@ -111,6 +111,7 @@ describe('ListingsService', () => {
       mileageKm: 120000,
       powerHp: 190,
       engineLiters: '2.0',
+      emissionStandard: 'euro_6d',
       fuel: 'diesel',
       transmission: 'automatic',
       location: 'Sofia',
@@ -199,6 +200,7 @@ describe('ListingsService', () => {
         expect.objectContaining({
           brandName: 'BMW',
           engineLiters: 2,
+          emissionStandard: 'euro_6d',
           powerHp: 190,
           primaryImageUrl: '/uploads/primary.webp',
           price: 18000,
@@ -299,6 +301,7 @@ describe('ListingsService', () => {
         mileageKm: 120000,
         powerHp: 190,
         engineLiters: 2,
+        emissionStandard: 'euro_6d',
         fuel: 'diesel',
         transmission: 'automatic',
         location: 'Sofia',
@@ -321,6 +324,7 @@ describe('ListingsService', () => {
       expect.objectContaining({
         currency: 'EUR',
         engineLiters: '2',
+        emissionStandard: 'euro_6d',
         powerHp: 190,
         status: 'pending',
       }),
@@ -437,6 +441,7 @@ describe('ListingsService', () => {
         modelId: 'model-2',
         title: 'Updated title',
         engineLiters: 3,
+        emissionStandard: 'euro_6',
         featureKeys: ['leather_interior'],
       }),
     ).resolves.toMatchObject({
@@ -451,6 +456,7 @@ describe('ListingsService', () => {
       modelId: 'model-2',
       title: 'Updated title',
       engineLiters: '3',
+      emissionStandard: 'euro_6',
     });
     expect(listingFeaturesService.syncListingFeatures).toHaveBeenCalledWith(
       'listing-1',

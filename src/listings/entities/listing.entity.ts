@@ -15,11 +15,18 @@ import { BrandEntity, VehicleModelEntity } from '../../brands/entities';
 import { UserEntity } from '../../users/entities';
 import {
   DEFAULT_LISTING_STATUS,
+  EMISSION_STANDARDS,
   FUEL_TYPES,
   LISTING_STATUSES,
   TRANSMISSION_TYPES,
 } from '../constants';
-import { Currency, FuelType, ListingStatus, TransmissionType } from '../types';
+import {
+  Currency,
+  EmissionStandard,
+  FuelType,
+  ListingStatus,
+  TransmissionType,
+} from '../types';
 import { ImageEntity } from './image.entity';
 import { ListingFeatureSelectionEntity } from './listing-feature-selection.entity';
 
@@ -80,6 +87,15 @@ export class ListingEntity {
     type: 'numeric',
   })
   engineLiters: string | null;
+
+  @Column({
+    name: 'emission_standard',
+    enum: [...EMISSION_STANDARDS],
+    enumName: 'emission_standard',
+    nullable: true,
+    type: 'enum',
+  })
+  emissionStandard: EmissionStandard | null;
 
   @Column({
     enum: [...FUEL_TYPES],
