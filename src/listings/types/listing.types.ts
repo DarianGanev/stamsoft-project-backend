@@ -44,6 +44,7 @@ export interface Listing {
   contactName: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
+  sellerCreatedAt: string | null;
   price: number;
   currency: Currency;
   status: ListingStatus;

@@ -440,6 +440,7 @@ export class ListingsService {
       .createQueryBuilder('listing')
       .innerJoinAndSelect('listing.brand', 'brand')
       .innerJoinAndSelect('listing.model', 'model')
+      .innerJoinAndSelect('listing.user', 'user')
       .leftJoinAndSelect('listing.images', 'image')
       .leftJoinAndSelect('listing.featureSelections', 'featureSelection')
       .leftJoinAndSelect('featureSelection.feature', 'feature');
@@ -568,6 +569,7 @@ export class ListingsService {
       contactName: listing.contactName,
       contactPhone: listing.contactPhone,
       contactEmail: listing.contactEmail,
+      sellerCreatedAt: listing.user?.createdAt?.toISOString() ?? null,
       price: Number(listing.price),
       currency: listing.currency,
       status: listing.status,
