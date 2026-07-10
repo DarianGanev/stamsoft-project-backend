@@ -26,6 +26,7 @@ import { ListingFeaturesService } from './listing-features.service';
 import { LocalImageStorageService } from './local-image-storage.service';
 import {
   ALLOWED_IMAGE_TYPES,
+  DEFAULT_LISTING_STATUS,
   MAX_IMAGE_SIZE_BYTES,
   MAX_IMAGES_PER_LISTING,
   MAX_IMAGES_PER_UPLOAD,
@@ -283,7 +284,7 @@ export class ListingsService {
         contactEmail: input.contactEmail ?? null,
         price: String(input.price),
         currency: input.currency ?? 'EUR',
-        status: 'pending',
+        status: DEFAULT_LISTING_STATUS,
       }),
     );
 

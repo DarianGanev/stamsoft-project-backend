@@ -7,6 +7,13 @@ export type ListingFeatureCategory =
   | 'interior'
   | 'specialized';
 
+export type ListingFeatureOption = Readonly<{
+  key: string;
+  category: ListingFeatureCategory;
+  label: string;
+  sortOrder: number;
+}>;
+
 export interface ListingFeature {
   id: string;
   key: string;
