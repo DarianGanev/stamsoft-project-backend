@@ -1,4 +1,6 @@
 import {
+  ArrayMaxSize,
+  IsArray,
   IsEmail,
   IsIn,
   IsInt,
@@ -13,10 +15,17 @@ import {
 
 import {
   CURRENCIES,
+  EMISSION_STANDARDS,
   FUEL_TYPES,
+  MAX_LISTING_FEATURES_PER_LISTING,
   TRANSMISSION_TYPES,
 } from '../constants';
-import { Currency, FuelType, TransmissionType } from '../types';
+import {
+  Currency,
+  EmissionStandard,
+  FuelType,
+  TransmissionType,
+} from '../types';
 
 export class CreateListingDto {
   @IsUUID()
@@ -55,6 +64,10 @@ export class CreateListingDto {
   engineLiters?: number;
 
   @IsOptional()
+  @IsIn(EMISSION_STANDARDS)
+  emissionStandard?: EmissionStandard;
+
+  @IsOptional()
   @IsIn(FUEL_TYPES)
   fuel?: FuelType;
 
@@ -85,4 +98,10 @@ export class CreateListingDto {
   @IsOptional()
   @IsIn(CURRENCIES)
   currency?: Currency;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_LISTING_FEATURES_PER_LISTING)
+  @IsString({ each: true })
+  featureKeys?: string[];
 }

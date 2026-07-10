@@ -33,6 +33,7 @@
     "postgre:reset": "npm run postgre:rm && npm run postgre:up && npm run migration:run",
     "compose:up": "docker compose up -d",
     "seed:vehicles": "ts-node -r tsconfig-paths/register src/seeding/seed-vehicle-data.ts",
+    "seed:listing-features": "ts-node -r tsconfig-paths/register src/seeding/seed-listing-features.ts",
     "ssl:generate": "cd secrets && echo SPAM SPACE FOR DEVELOPMENT && bash create.sh"
   },
   "dependencies": {

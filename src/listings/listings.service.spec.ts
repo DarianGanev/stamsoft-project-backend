@@ -5,7 +5,14 @@ import {
 } from '@nestjs/common';
 
 import { BrandEntity, VehicleModelEntity } from '../brands/entities';
-import { ImageEntity, ListingEntity } from './entities';
+import { UserEntity } from '../users/entities';
+import {
+  ImageEntity,
+  ListingEntity,
+  ListingFeatureEntity,
+  ListingFeatureSelectionEntity,
+} from './entities';
+import { ListingFeaturesService } from './listing-features.service';
 import { ListingsService } from './listings.service';
 
 class MockListingQueryBuilder {
@@ -31,6 +38,22 @@ describe('ListingsService', () => {
       save: jest.fn(),
       update: jest.fn(),
     };
+    const transactionManager = {
+      getRepository: jest.fn((entity: unknown) => {
+        if (entity === ListingEntity) {
+          return listingsRepository;
+        }
+
+        throw new Error('Unexpected transaction repository.');
+      }),
+    };
+    const dataSource = {
+      transaction: jest.fn(
+        async (
+          callback: (manager: typeof transactionManager) => Promise<unknown>,
+        ) => callback(transactionManager),
+      ),
+    };
     const imagesRepository = {
       count: jest.fn(),
       create: jest.fn((input: Partial<ImageEntity>) => input),
@@ -46,11 +69,19 @@ describe('ListingsService', () => {
     const imageStorageService = {
       save: jest.fn(),
     };
+    const populateListingFeatures = jest.fn();
+    const listingFeaturesService = {
+      populateListingFeatures,
+      syncListingFeatures: jest.fn(),
+    };
 
     return {
       brandsRepository,
+      dataSource,
       imagesRepository,
       imageStorageService,
+      listingFeaturesService,
+      populateListingFeatures,
       listingsRepository,
       modelsRepository,
       queryBuilder,
@@ -60,11 +91,15 @@ describe('ListingsService', () => {
         brandsRepository as never,
         modelsRepository as never,
         imageStorageService as never,
+        listingFeaturesService as unknown as ListingFeaturesService,
+        dataSource as never,
       ),
     };
   }
 
-  function listingEntity(overrides: Partial<ListingEntity> = {}): ListingEntity {
+  function listingEntity(
+    overrides: Partial<ListingEntity> = {},
+  ): ListingEntity {
     return {
       id: 'listing-1',
       userId: 'user-1',
@@ -76,6 +111,7 @@ describe('ListingsService', () => {
       mileageKm: 120000,
       powerHp: 190,
       engineLiters: '2.0',
+      emissionStandard: 'euro_6d',
       fuel: 'diesel',
       transmission: 'automatic',
       location: 'Sofia',
@@ -89,6 +125,10 @@ describe('ListingsService', () => {
       moderatedById: null,
       createdAt: new Date('2026-07-01T10:00:00.000Z'),
       updatedAt: new Date('2026-07-02T10:00:00.000Z'),
+      user: {
+        id: 'user-1',
+        createdAt: new Date('2025-01-10T10:00:00.000Z'),
+      } as UserEntity,
       brand: { id: 'brand-1', name: 'BMW' } as BrandEntity,
       model: {
         id: 'model-1',
@@ -113,12 +153,27 @@ describe('ListingsService', () => {
           createdAt: new Date('2026-07-01T10:02:00.000Z'),
         } as ImageEntity,
       ],
+      featureSelections: [
+        {
+          id: 'selection-1',
+          listingId: 'listing-1',
+          featureId: 'feature-1',
+          createdAt: new Date('2026-07-01T10:03:00.000Z'),
+          feature: {
+            id: 'feature-1',
+            key: 'abs',
+            category: 'safety',
+            label: 'Антиблокираща система',
+            sortOrder: 30,
+          } as ListingFeatureEntity,
+        } as ListingFeatureSelectionEntity,
+      ],
       ...overrides,
     } as ListingEntity;
   }
 
   it('lists published listings with combined filters, search, pagination, and sort', async () => {
-    const { queryBuilder, service } = createService();
+    const { populateListingFeatures, queryBuilder, service } = createService();
     const listing = listingEntity();
 
     queryBuilder.getManyAndCount.mockResolvedValue([[listing], 1]);
@@ -145,9 +200,19 @@ describe('ListingsService', () => {
         expect.objectContaining({
           brandName: 'BMW',
           engineLiters: 2,
+          emissionStandard: 'euro_6d',
           powerHp: 190,
           primaryImageUrl: '/uploads/primary.webp',
           price: 18000,
+          sellerCreatedAt: '2025-01-10T10:00:00.000Z',
+          features: [
+            {
+              id: 'feature-1',
+              key: 'abs',
+              category: 'safety',
+              label: 'Антиблокираща система',
+            },
+          ],
         }),
       ],
       meta: { page: 2, limit: 10, total: 1 },
@@ -172,6 +237,11 @@ describe('ListingsService', () => {
       'listing.createdAt',
       'DESC',
     );
+    expect(queryBuilder.innerJoinAndSelect).toHaveBeenCalledWith(
+      'listing.user',
+      'user',
+    );
+    expect(populateListingFeatures).toHaveBeenCalledWith([listing]);
   });
 
   it('lists only listings owned by the authenticated user', async () => {
@@ -206,8 +276,15 @@ describe('ListingsService', () => {
   });
 
   it('creates a listing only when brand and model pair is valid', async () => {
-    const { brandsRepository, listingsRepository, modelsRepository, queryBuilder, service } =
-      createService();
+    const {
+      brandsRepository,
+      dataSource,
+      listingFeaturesService,
+      listingsRepository,
+      modelsRepository,
+      queryBuilder,
+      service,
+    } = createService();
     const listing = listingEntity();
 
     brandsRepository.exists.mockResolvedValue(true);
@@ -224,10 +301,12 @@ describe('ListingsService', () => {
         mileageKm: 120000,
         powerHp: 190,
         engineLiters: 2,
+        emissionStandard: 'euro_6d',
         fuel: 'diesel',
         transmission: 'automatic',
         location: 'Sofia',
         price: 18000,
+        featureKeys: ['abs', 'parking_sensors'],
       }),
     ).resolves.toMatchObject({
       id: 'listing-1',
@@ -245,10 +324,17 @@ describe('ListingsService', () => {
       expect.objectContaining({
         currency: 'EUR',
         engineLiters: '2',
+        emissionStandard: 'euro_6d',
         powerHp: 190,
         status: 'pending',
       }),
     );
+    expect(listingFeaturesService.syncListingFeatures).toHaveBeenCalledWith(
+      'listing-1',
+      ['abs', 'parking_sensors'],
+      expect.anything(),
+    );
+    expect(dataSource.transaction).toHaveBeenCalled();
   });
 
   it('lists pending listings for admin moderation by default', async () => {
@@ -280,7 +366,9 @@ describe('ListingsService', () => {
   it('moderates a listing with admin id and timestamp', async () => {
     const { listingsRepository, queryBuilder, service } = createService();
 
-    listingsRepository.findOne.mockResolvedValue(listingEntity({ status: 'pending' }));
+    listingsRepository.findOne.mockResolvedValue(
+      listingEntity({ status: 'pending' }),
+    );
     queryBuilder.getOne.mockResolvedValue(
       listingEntity({
         moderatedAt: new Date('2026-07-06T10:00:00.000Z'),
@@ -328,8 +416,15 @@ describe('ListingsService', () => {
   });
 
   it('updates only provided fields and validates changed brand/model pair', async () => {
-    const { brandsRepository, listingsRepository, modelsRepository, queryBuilder, service } =
-      createService();
+    const {
+      brandsRepository,
+      dataSource,
+      listingFeaturesService,
+      listingsRepository,
+      modelsRepository,
+      queryBuilder,
+      service,
+    } = createService();
 
     listingsRepository.findOne.mockResolvedValue(listingEntity());
     brandsRepository.exists.mockResolvedValue(true);
@@ -346,6 +441,8 @@ describe('ListingsService', () => {
         modelId: 'model-2',
         title: 'Updated title',
         engineLiters: 3,
+        emissionStandard: 'euro_6',
+        featureKeys: ['leather_interior'],
       }),
     ).resolves.toMatchObject({
       modelId: 'model-2',
@@ -359,7 +456,14 @@ describe('ListingsService', () => {
       modelId: 'model-2',
       title: 'Updated title',
       engineLiters: '3',
+      emissionStandard: 'euro_6',
     });
+    expect(listingFeaturesService.syncListingFeatures).toHaveBeenCalledWith(
+      'listing-1',
+      ['leather_interior'],
+      expect.anything(),
+    );
+    expect(dataSource.transaction).toHaveBeenCalled();
   });
 
   it('blocks users from modifying listings they do not own', async () => {

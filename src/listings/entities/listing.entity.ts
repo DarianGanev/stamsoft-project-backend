@@ -13,8 +13,22 @@ import {
 
 import { BrandEntity, VehicleModelEntity } from '../../brands/entities';
 import { UserEntity } from '../../users/entities';
-import { Currency, FuelType, ListingStatus, TransmissionType } from '../types';
+import {
+  DEFAULT_LISTING_STATUS,
+  EMISSION_STANDARDS,
+  FUEL_TYPES,
+  LISTING_STATUSES,
+  TRANSMISSION_TYPES,
+} from '../constants';
+import {
+  Currency,
+  EmissionStandard,
+  FuelType,
+  ListingStatus,
+  TransmissionType,
+} from '../types';
 import { ImageEntity } from './image.entity';
+import { ListingFeatureSelectionEntity } from './listing-feature-selection.entity';
 
 @Entity({ name: 'listings' })
 @Index('idx_listings_user_id', ['userId'])
@@ -32,7 +46,10 @@ import { ImageEntity } from './image.entity';
 @Check('chk_listings_year', '"year" IS NULL OR "year" BETWEEN 1886 AND 2100')
 @Check('chk_listings_mileage_km', '"mileage_km" IS NULL OR "mileage_km" >= 0')
 @Check('chk_listings_power_hp', '"power_hp" IS NULL OR "power_hp" >= 0')
-@Check('chk_listings_engine_liters', '"engine_liters" IS NULL OR "engine_liters" >= 0')
+@Check(
+  'chk_listings_engine_liters',
+  '"engine_liters" IS NULL OR "engine_liters" >= 0',
+)
 @Check('chk_listings_price', '"price" >= 0')
 export class ListingEntity {
   @PrimaryGeneratedColumn('uuid')
@@ -72,7 +89,16 @@ export class ListingEntity {
   engineLiters: string | null;
 
   @Column({
-    enum: ['gasoline', 'diesel', 'hybrid', 'electric', 'lpg', 'cng', 'other'],
+    name: 'emission_standard',
+    enum: [...EMISSION_STANDARDS],
+    enumName: 'emission_standard',
+    nullable: true,
+    type: 'enum',
+  })
+  emissionStandard: EmissionStandard | null;
+
+  @Column({
+    enum: [...FUEL_TYPES],
     enumName: 'fuel_type',
     nullable: true,
     type: 'enum',
@@ -80,7 +106,7 @@ export class ListingEntity {
   fuel: FuelType | null;
 
   @Column({
-    enum: ['manual', 'automatic', 'semi_automatic'],
+    enum: [...TRANSMISSION_TYPES],
     enumName: 'transmission_type',
     nullable: true,
     type: 'enum',
@@ -106,9 +132,9 @@ export class ListingEntity {
   currency: Currency;
 
   @Column({
-    enum: ['pending', 'published', 'rejected', 'draft', 'sold', 'archived'],
+    enum: [...LISTING_STATUSES],
     enumName: 'listing_status',
-    default: 'pending',
+    default: DEFAULT_LISTING_STATUS,
     type: 'enum',
   })
   status: ListingStatus;
@@ -147,4 +173,10 @@ export class ListingEntity {
 
   @OneToMany(() => ImageEntity, (image) => image.listing)
   images: ImageEntity[];
+
+  @OneToMany(
+    () => ListingFeatureSelectionEntity,
+    (selection) => selection.listing,
+  )
+  featureSelections: ListingFeatureSelectionEntity[];
 }

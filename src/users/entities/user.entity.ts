@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 
 import { ListingEntity } from '../../listings/entities';
+import { DEFAULT_USER_ROLE, USER_ROLES } from '../constants';
 import { UserRole } from '../types';
 
 @Entity({ name: 'users' })
@@ -24,13 +25,13 @@ export class UserEntity {
   @Column({ nullable: true, type: 'text' })
   phone: string | null;
 
-  @Column({ name: 'password_hash', type: 'text' })
+  @Column({ name: 'password_hash', select: false, type: 'text' })
   passwordHash: string;
 
   @Column({
-    enum: ['user', 'admin'],
+    enum: [...USER_ROLES],
     enumName: 'user_role',
-    default: 'user',
+    default: DEFAULT_USER_ROLE,
     type: 'enum',
   })
   role: UserRole;

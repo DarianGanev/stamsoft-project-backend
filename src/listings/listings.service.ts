@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
+import { Brackets, DataSource, Repository, SelectQueryBuilder } from 'typeorm';
 
 import { BrandEntity, VehicleModelEntity } from '../brands/entities';
 import {
@@ -20,10 +20,13 @@ import {
   Listing,
   ListingImage,
   ListingModerationStatus,
+  ListingSelectedFeature,
 } from './types';
+import { ListingFeaturesService } from './listing-features.service';
 import { LocalImageStorageService } from './local-image-storage.service';
 import {
   ALLOWED_IMAGE_TYPES,
+  DEFAULT_LISTING_STATUS,
   MAX_IMAGE_SIZE_BYTES,
   MAX_IMAGES_PER_LISTING,
   MAX_IMAGES_PER_UPLOAD,
@@ -41,6 +44,8 @@ export class ListingsService {
     @InjectRepository(VehicleModelEntity)
     private readonly modelsRepository: Repository<VehicleModelEntity>,
     private readonly imageStorageService: LocalImageStorageService,
+    private readonly listingFeaturesService: ListingFeaturesService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async list(query: ListListingsQueryDto) {
@@ -52,8 +57,18 @@ export class ListingsService {
       .skip(offset)
       .take(limit);
 
-    this.addFilter(queryBuilder, 'listing.brandId = :brandId', 'brandId', query.brandId);
-    this.addFilter(queryBuilder, 'listing.modelId = :modelId', 'modelId', query.modelId);
+    this.addFilter(
+      queryBuilder,
+      'listing.brandId = :brandId',
+      'brandId',
+      query.brandId,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.modelId = :modelId',
+      'modelId',
+      query.modelId,
+    );
     this.addFilter(queryBuilder, 'listing.fuel = :fuel', 'fuel', query.fuel);
     this.addFilter(
       queryBuilder,
@@ -67,10 +82,30 @@ export class ListingsService {
       'location',
       query.location ? `%${query.location}%` : undefined,
     );
-    this.addFilter(queryBuilder, 'listing.price >= :minPrice', 'minPrice', query.minPrice);
-    this.addFilter(queryBuilder, 'listing.price <= :maxPrice', 'maxPrice', query.maxPrice);
-    this.addFilter(queryBuilder, 'listing.year >= :minYear', 'minYear', query.minYear);
-    this.addFilter(queryBuilder, 'listing.year <= :maxYear', 'maxYear', query.maxYear);
+    this.addFilter(
+      queryBuilder,
+      'listing.price >= :minPrice',
+      'minPrice',
+      query.minPrice,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.price <= :maxPrice',
+      'maxPrice',
+      query.maxPrice,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.year >= :minYear',
+      'minYear',
+      query.minYear,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.year <= :maxYear',
+      'maxYear',
+      query.maxYear,
+    );
     this.addFilter(
       queryBuilder,
       'listing.mileageKm <= :maxMileage',
@@ -81,6 +116,7 @@ export class ListingsService {
     this.applySort(queryBuilder, query.sort);
 
     const [listings, total] = await queryBuilder.getManyAndCount();
+    await this.listingFeaturesService.populateListingFeatures(listings);
 
     return {
       data: listings.map((listing) => this.toListing(listing)),
@@ -101,8 +137,18 @@ export class ListingsService {
       .skip(offset)
       .take(limit);
 
-    this.addFilter(queryBuilder, 'listing.brandId = :brandId', 'brandId', query.brandId);
-    this.addFilter(queryBuilder, 'listing.modelId = :modelId', 'modelId', query.modelId);
+    this.addFilter(
+      queryBuilder,
+      'listing.brandId = :brandId',
+      'brandId',
+      query.brandId,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.modelId = :modelId',
+      'modelId',
+      query.modelId,
+    );
     this.addFilter(queryBuilder, 'listing.fuel = :fuel', 'fuel', query.fuel);
     this.addFilter(
       queryBuilder,
@@ -116,10 +162,30 @@ export class ListingsService {
       'location',
       query.location ? `%${query.location}%` : undefined,
     );
-    this.addFilter(queryBuilder, 'listing.price >= :minPrice', 'minPrice', query.minPrice);
-    this.addFilter(queryBuilder, 'listing.price <= :maxPrice', 'maxPrice', query.maxPrice);
-    this.addFilter(queryBuilder, 'listing.year >= :minYear', 'minYear', query.minYear);
-    this.addFilter(queryBuilder, 'listing.year <= :maxYear', 'maxYear', query.maxYear);
+    this.addFilter(
+      queryBuilder,
+      'listing.price >= :minPrice',
+      'minPrice',
+      query.minPrice,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.price <= :maxPrice',
+      'maxPrice',
+      query.maxPrice,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.year >= :minYear',
+      'minYear',
+      query.minYear,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.year <= :maxYear',
+      'maxYear',
+      query.maxYear,
+    );
     this.addFilter(
       queryBuilder,
       'listing.mileageKm <= :maxMileage',
@@ -130,6 +196,7 @@ export class ListingsService {
     this.applySort(queryBuilder, query.sort);
 
     const [listings, total] = await queryBuilder.getManyAndCount();
+    await this.listingFeaturesService.populateListingFeatures(listings);
 
     return {
       data: listings.map((listing) => this.toListing(listing)),
@@ -153,6 +220,7 @@ export class ListingsService {
     this.applySort(queryBuilder, 'newest');
 
     const [listings, total] = await queryBuilder.getManyAndCount();
+    await this.listingFeaturesService.populateListingFeatures(listings);
 
     return {
       data: listings.map((listing) => this.toListing(listing)),
@@ -194,37 +262,55 @@ export class ListingsService {
       throw new NotFoundException('Listing not found.');
     }
 
+    await this.listingFeaturesService.populateListingFeatures([listing]);
+
     return this.toListing(listing);
   }
 
   async create(userId: string, input: CreateListingDto): Promise<Listing> {
     await this.validateBrandModelPair(input.brandId, input.modelId);
 
-    const listing = await this.listingsRepository.save(
-      this.listingsRepository.create({
-        userId,
-        brandId: input.brandId,
-        modelId: input.modelId,
-        title: input.title,
-        description: input.description ?? null,
-        year: input.year ?? null,
-        mileageKm: input.mileageKm ?? null,
-        powerHp: input.powerHp ?? null,
-        engineLiters:
-          input.engineLiters === undefined ? null : String(input.engineLiters),
-        fuel: input.fuel ?? null,
-        transmission: input.transmission ?? null,
-        location: input.location ?? null,
-        contactName: input.contactName ?? null,
-        contactPhone: input.contactPhone ?? null,
-        contactEmail: input.contactEmail ?? null,
-        price: String(input.price),
-        currency: input.currency ?? 'EUR',
-        status: 'pending',
-      }),
-    );
+    const listingId = await this.dataSource.transaction(async (manager) => {
+      const listingsRepository = manager.getRepository(ListingEntity);
+      const listing = await listingsRepository.save(
+        listingsRepository.create({
+          userId,
+          brandId: input.brandId,
+          modelId: input.modelId,
+          title: input.title,
+          description: input.description ?? null,
+          year: input.year ?? null,
+          mileageKm: input.mileageKm ?? null,
+          powerHp: input.powerHp ?? null,
+          engineLiters:
+            input.engineLiters === undefined
+              ? null
+              : String(input.engineLiters),
+          emissionStandard: input.emissionStandard ?? null,
+          fuel: input.fuel ?? null,
+          transmission: input.transmission ?? null,
+          location: input.location ?? null,
+          contactName: input.contactName ?? null,
+          contactPhone: input.contactPhone ?? null,
+          contactEmail: input.contactEmail ?? null,
+          price: String(input.price),
+          currency: input.currency ?? 'EUR',
+          status: DEFAULT_LISTING_STATUS,
+        }),
+      );
 
-    return this.findOwned(listing.id, userId);
+      if (input.featureKeys !== undefined) {
+        await this.listingFeaturesService.syncListingFeatures(
+          listing.id,
+          input.featureKeys,
+          manager,
+        );
+      }
+
+      return listing.id;
+    });
+
+    return this.findOwned(listingId, userId);
   }
 
   async update(
@@ -241,9 +327,21 @@ export class ListingsService {
       await this.validateBrandModelPair(brandId, modelId);
     }
 
-    if (Object.keys(updates).length > 0) {
-      await this.listingsRepository.update(id, updates);
-    }
+    await this.dataSource.transaction(async (manager) => {
+      const listingsRepository = manager.getRepository(ListingEntity);
+
+      if (Object.keys(updates).length > 0) {
+        await listingsRepository.update(id, updates);
+      }
+
+      if (input.featureKeys !== undefined) {
+        await this.listingFeaturesService.syncListingFeatures(
+          id,
+          input.featureKeys,
+          manager,
+        );
+      }
+    });
 
     return this.findOwned(id, userId);
   }
@@ -306,6 +404,8 @@ export class ListingsService {
       throw new NotFoundException('Listing not found.');
     }
 
+    await this.listingFeaturesService.populateListingFeatures([listing]);
+
     return this.toListing(listing);
   }
 
@@ -318,10 +418,15 @@ export class ListingsService {
       throw new NotFoundException('Listing not found.');
     }
 
+    await this.listingFeaturesService.populateListingFeatures([listing]);
+
     return this.toListing(listing);
   }
 
-  private async ensureOwner(id: string, userId: string): Promise<ListingEntity> {
+  private async ensureOwner(
+    id: string,
+    userId: string,
+  ): Promise<ListingEntity> {
     const listing = await this.listingsRepository.findOne({ where: { id } });
 
     if (!listing) {
@@ -360,6 +465,7 @@ export class ListingsService {
       .createQueryBuilder('listing')
       .innerJoinAndSelect('listing.brand', 'brand')
       .innerJoinAndSelect('listing.model', 'model')
+      .innerJoinAndSelect('listing.user', 'user')
       .leftJoinAndSelect('listing.images', 'image');
   }
 
@@ -436,6 +542,7 @@ export class ListingsService {
       'engineLiters',
       input.engineLiters === undefined ? undefined : String(input.engineLiters),
     );
+    this.addUpdate(updates, 'emissionStandard', input.emissionStandard);
     this.addUpdate(updates, 'fuel', input.fuel);
     this.addUpdate(updates, 'transmission', input.transmission);
     this.addUpdate(updates, 'location', input.location);
@@ -480,12 +587,14 @@ export class ListingsService {
       powerHp: listing.powerHp,
       engineLiters:
         listing.engineLiters === null ? null : Number(listing.engineLiters),
+      emissionStandard: listing.emissionStandard,
       fuel: listing.fuel,
       transmission: listing.transmission,
       location: listing.location,
       contactName: listing.contactName,
       contactPhone: listing.contactPhone,
       contactEmail: listing.contactEmail,
+      sellerCreatedAt: listing.user?.createdAt?.toISOString() ?? null,
       price: Number(listing.price),
       currency: listing.currency,
       status: listing.status,
@@ -495,7 +604,24 @@ export class ListingsService {
       updatedAt: listing.updatedAt.toISOString(),
       images: images.map((image) => this.toListingImage(image)),
       primaryImageUrl: images[0]?.imageUrl ?? null,
+      features: this.toListingFeatures(listing),
     };
+  }
+
+  private toListingFeatures(listing: ListingEntity): ListingSelectedFeature[] {
+    const selections = listing.featureSelections ?? [];
+
+    return selections
+      .filter((selection) => selection.feature)
+      .sort(
+        (first, second) => first.feature.sortOrder - second.feature.sortOrder,
+      )
+      .map((selection) => ({
+        id: selection.feature.id,
+        key: selection.feature.key,
+        category: selection.feature.category,
+        label: selection.feature.label,
+      }));
   }
 
   private toListingImage(image: ImageEntity): ListingImage {

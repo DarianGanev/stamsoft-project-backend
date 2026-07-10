@@ -1,27 +1,23 @@
+import { ListingFeatureCategory } from './listing-feature.types';
+
 export type ListingStatus =
-  | 'pending'
-  | 'published'
-  | 'rejected'
-  | 'draft'
-  | 'sold'
-  | 'archived';
+  'pending' | 'published' | 'rejected' | 'draft' | 'sold' | 'archived';
 export type ListingModerationStatus = 'published' | 'rejected';
 export type FuelType =
-  | 'gasoline'
-  | 'diesel'
-  | 'hybrid'
-  | 'electric'
-  | 'lpg'
-  | 'cng'
-  | 'other';
+  'gasoline' | 'diesel' | 'hybrid' | 'electric' | 'lpg' | 'cng' | 'other';
 export type TransmissionType = 'manual' | 'automatic' | 'semi_automatic';
+export type EmissionStandard =
+  'euro_1' | 'euro_2' | 'euro_3' | 'euro_4' | 'euro_5' | 'euro_6' | 'euro_6d';
 export type ListingSort =
-  | 'newest'
-  | 'price-low'
-  | 'price-high'
-  | 'price_asc'
-  | 'price_desc';
+  'newest' | 'price-low' | 'price-high' | 'price_asc' | 'price_desc';
 export type Currency = 'EUR' | 'BGN';
+
+export interface ListingSelectedFeature {
+  id: string;
+  key: string;
+  category: ListingFeatureCategory;
+  label: string;
+}
 
 export interface ListingImage {
   id: string;
@@ -44,12 +40,14 @@ export interface Listing {
   mileageKm: number | null;
   powerHp: number | null;
   engineLiters: number | null;
+  emissionStandard: EmissionStandard | null;
   fuel: FuelType | null;
   transmission: TransmissionType | null;
   location: string | null;
   contactName: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
+  sellerCreatedAt: string | null;
   price: number;
   currency: Currency;
   status: ListingStatus;
@@ -59,6 +57,7 @@ export interface Listing {
   updatedAt: string;
   images: ListingImage[];
   primaryImageUrl: string | null;
+  features: ListingSelectedFeature[];
 }
 
 export interface ListingRecord {
@@ -74,6 +73,7 @@ export interface ListingRecord {
   mileage_km: number | null;
   power_hp: number | null;
   engine_liters: string | null;
+  emission_standard: EmissionStandard | null;
   fuel: FuelType | null;
   transmission: TransmissionType | null;
   location: string | null;

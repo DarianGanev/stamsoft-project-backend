@@ -1,5 +1,6 @@
 import type {
   Currency,
+  EmissionStandard,
   FuelType,
   ListingModerationStatus,
   ListingSort,
@@ -23,6 +24,16 @@ export const TRANSMISSION_TYPES: readonly TransmissionType[] = [
   'semi_automatic',
 ] as const;
 
+export const EMISSION_STANDARDS: readonly EmissionStandard[] = [
+  'euro_1',
+  'euro_2',
+  'euro_3',
+  'euro_4',
+  'euro_5',
+  'euro_6',
+  'euro_6d',
+] as const;
+
 export const LISTING_STATUSES: readonly ListingStatus[] = [
   'pending',
   'published',
@@ -31,6 +42,8 @@ export const LISTING_STATUSES: readonly ListingStatus[] = [
   'sold',
   'archived',
 ] as const;
+
+export const DEFAULT_LISTING_STATUS: ListingStatus = 'pending';
 
 export const LISTING_MODERATION_STATUSES: readonly ListingModerationStatus[] = [
   'published',
