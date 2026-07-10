@@ -37,6 +37,22 @@ describe('ListingsService', () => {
       save: jest.fn(),
       update: jest.fn(),
     };
+    const transactionManager = {
+      getRepository: jest.fn((entity: unknown) => {
+        if (entity === ListingEntity) {
+          return listingsRepository;
+        }
+
+        throw new Error('Unexpected transaction repository.');
+      }),
+    };
+    const dataSource = {
+      transaction: jest.fn(
+        async (
+          callback: (manager: typeof transactionManager) => Promise<unknown>,
+        ) => callback(transactionManager),
+      ),
+    };
     const imagesRepository = {
       count: jest.fn(),
       create: jest.fn((input: Partial<ImageEntity>) => input),
@@ -58,6 +74,7 @@ describe('ListingsService', () => {
 
     return {
       brandsRepository,
+      dataSource,
       imagesRepository,
       imageStorageService,
       listingFeaturesService,
@@ -71,6 +88,7 @@ describe('ListingsService', () => {
         modelsRepository as never,
         imageStorageService as never,
         listingFeaturesService as unknown as ListingFeaturesService,
+        dataSource as never,
       ),
     };
   }
@@ -244,6 +262,7 @@ describe('ListingsService', () => {
   it('creates a listing only when brand and model pair is valid', async () => {
     const {
       brandsRepository,
+      dataSource,
       listingFeaturesService,
       listingsRepository,
       modelsRepository,
@@ -295,7 +314,9 @@ describe('ListingsService', () => {
     expect(listingFeaturesService.syncListingFeatures).toHaveBeenCalledWith(
       'listing-1',
       ['abs', 'parking_sensors'],
+      expect.anything(),
     );
+    expect(dataSource.transaction).toHaveBeenCalled();
   });
 
   it('lists pending listings for admin moderation by default', async () => {
@@ -379,6 +400,7 @@ describe('ListingsService', () => {
   it('updates only provided fields and validates changed brand/model pair', async () => {
     const {
       brandsRepository,
+      dataSource,
       listingFeaturesService,
       listingsRepository,
       modelsRepository,
@@ -419,7 +441,9 @@ describe('ListingsService', () => {
     expect(listingFeaturesService.syncListingFeatures).toHaveBeenCalledWith(
       'listing-1',
       ['leather_interior'],
+      expect.anything(),
     );
+    expect(dataSource.transaction).toHaveBeenCalled();
   });
 
   it('blocks users from modifying listings they do not own', async () => {

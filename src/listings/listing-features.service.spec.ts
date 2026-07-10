@@ -1,6 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 
-import { ListingFeatureEntity } from './entities';
+import {
+  ListingFeatureEntity,
+  ListingFeatureSelectionEntity,
+} from './entities';
 import { ListingFeaturesService } from './listing-features.service';
 
 describe('ListingFeaturesService', () => {
@@ -13,14 +16,25 @@ describe('ListingFeaturesService', () => {
       delete: jest.fn(),
       save: jest.fn(),
     };
+    const entityManager = {
+      getRepository: jest.fn((entity: unknown) => {
+        if (entity === ListingFeatureEntity) {
+          return featuresRepository;
+        }
+
+        if (entity === ListingFeatureSelectionEntity) {
+          return selectionsRepository;
+        }
+
+        throw new Error('Unexpected transaction repository.');
+      }),
+    };
 
     return {
+      entityManager,
       featuresRepository,
       selectionsRepository,
-      service: new ListingFeaturesService(
-        featuresRepository as never,
-        selectionsRepository as never,
-      ),
+      service: new ListingFeaturesService(featuresRepository as never),
     };
   }
 
@@ -62,7 +76,7 @@ describe('ListingFeaturesService', () => {
   });
 
   it('syncs selected listing features', async () => {
-    const { featuresRepository, selectionsRepository, service } =
+    const { entityManager, featuresRepository, selectionsRepository, service } =
       createService();
 
     featuresRepository.find.mockResolvedValue([
@@ -70,11 +84,11 @@ describe('ListingFeaturesService', () => {
       featureEntity({ id: 'feature-2', key: 'parking_sensors' }),
     ]);
 
-    await service.syncListingFeatures('listing-1', [
-      'abs',
-      'parking_sensors',
-      'abs',
-    ]);
+    await service.syncListingFeatures(
+      'listing-1',
+      ['abs', 'parking_sensors', 'abs'],
+      entityManager as never,
+    );
 
     expect(selectionsRepository.delete).toHaveBeenCalledWith({
       listingId: 'listing-1',
@@ -86,14 +100,18 @@ describe('ListingFeaturesService', () => {
   });
 
   it('rejects unknown feature keys', async () => {
-    const { featuresRepository, service } = createService();
+    const { entityManager, featuresRepository, service } = createService();
 
     featuresRepository.find.mockResolvedValue([
       featureEntity({ id: 'feature-1', key: 'abs' }),
     ]);
 
     await expect(
-      service.syncListingFeatures('listing-1', ['abs', 'unknown_feature']),
+      service.syncListingFeatures(
+        'listing-1',
+        ['abs', 'unknown_feature'],
+        entityManager as never,
+      ),
     ).rejects.toThrow(BadRequestException);
   });
 

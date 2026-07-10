@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import type { EntityManager } from 'typeorm';
 
 import {
   LISTING_FEATURE_CATEGORIES,
@@ -17,8 +18,6 @@ export class ListingFeaturesService {
   constructor(
     @InjectRepository(ListingFeatureEntity)
     private readonly featuresRepository: Repository<ListingFeatureEntity>,
-    @InjectRepository(ListingFeatureSelectionEntity)
-    private readonly selectionsRepository: Repository<ListingFeatureSelectionEntity>,
   ) {}
 
   async listGrouped(): Promise<GroupedListingFeatures[]> {
@@ -41,12 +40,21 @@ export class ListingFeaturesService {
     }));
   }
 
-  async syncListingFeatures(listingId: string, featureKeys: string[]) {
+  async syncListingFeatures(
+    listingId: string,
+    featureKeys: string[],
+    entityManager: EntityManager,
+  ): Promise<void> {
+    const featuresRepository =
+      entityManager.getRepository(ListingFeatureEntity);
+    const selectionsRepository = entityManager.getRepository(
+      ListingFeatureSelectionEntity,
+    );
     const uniqueFeatureKeys = [...new Set(featureKeys)];
     const features =
       uniqueFeatureKeys.length === 0
         ? []
-        : await this.featuresRepository.find({
+        : await featuresRepository.find({
             where: { key: In(uniqueFeatureKeys) },
           });
 
@@ -61,15 +69,15 @@ export class ListingFeaturesService {
       );
     }
 
-    await this.selectionsRepository.delete({ listingId });
+    await selectionsRepository.delete({ listingId });
 
     if (features.length === 0) {
       return;
     }
 
-    await this.selectionsRepository.save(
+    await selectionsRepository.save(
       features.map((feature) =>
-        this.selectionsRepository.create({
+        selectionsRepository.create({
           listingId,
           featureId: feature.id,
         }),
