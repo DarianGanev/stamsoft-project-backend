@@ -8,6 +8,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, DataSource, Repository, SelectQueryBuilder } from 'typeorm';
 
 import { BrandEntity, VehicleModelEntity } from '../brands/entities';
+import { detectListingChanges } from '../notifications/listing-change-detector';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   CreateListingDto,
   ListListingsQueryDto,
@@ -46,6 +48,7 @@ export class ListingsService {
     private readonly imageStorageService: LocalImageStorageService,
     private readonly listingFeaturesService: ListingFeaturesService,
     private readonly dataSource: DataSource,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async list(query: ListListingsQueryDto) {
@@ -237,16 +240,41 @@ export class ListingsService {
     adminId: string,
     status: ListingModerationStatus,
   ): Promise<Listing> {
-    const listing = await this.listingsRepository.findOne({ where: { id } });
+    const listing = await this.listingsRepository.findOne({
+      relations: { images: true },
+      where: { id },
+    });
 
     if (!listing) {
       throw new NotFoundException('Listing not found.');
     }
 
-    await this.listingsRepository.update(id, {
-      moderatedAt: new Date(),
-      moderatedById: adminId,
-      status,
+    await this.dataSource.transaction(async (manager) => {
+      await manager.getRepository(ListingEntity).update(id, {
+        moderatedAt: new Date(),
+        moderatedById: adminId,
+        status,
+      });
+
+      if (listing.status === 'published' && status !== 'published') {
+        await this.notificationsService.createForListingChange(
+          {
+            listingId: listing.id,
+            listingOwnerId: listing.userId,
+            listingTitle: listing.title,
+            listingImageUrl: this.getPrimaryImageUrl(listing),
+            type: 'listing_unavailable',
+            changes: [
+              {
+                field: 'status',
+                oldValue: listing.status,
+                newValue: status,
+              },
+            ],
+          },
+          manager,
+        );
+      }
     });
 
     return this.findAny(id);
@@ -324,6 +352,10 @@ export class ListingsService {
     const brandId = input.brandId ?? listing.brandId;
     const modelId = input.modelId ?? listing.modelId;
     const updates = this.buildListingUpdates(input);
+    const beforeFeatureKeys = (listing.featureSelections ?? [])
+      .filter((selection) => selection.feature)
+      .map((selection) => selection.feature.key);
+    const changes = detectListingChanges(listing, input, beforeFeatureKeys);
 
     if (input.brandId !== undefined || input.modelId !== undefined) {
       await this.validateBrandModelPair(brandId, modelId);
@@ -343,14 +375,42 @@ export class ListingsService {
           manager,
         );
       }
+
+      if (changes.length > 0) {
+        await this.notificationsService.createForListingChange(
+          {
+            listingId: listing.id,
+            listingOwnerId: listing.userId,
+            listingTitle: input.title ?? listing.title,
+            listingImageUrl: this.getPrimaryImageUrl(listing),
+            type: 'listing_changed',
+            changes,
+          },
+          manager,
+        );
+      }
     });
 
     return this.findMine(id, userId);
   }
 
   async remove(id: string, userId: string): Promise<void> {
-    await this.ensureOwner(id, userId);
-    await this.listingsRepository.delete(id);
+    const listing = await this.ensureOwner(id, userId);
+
+    await this.dataSource.transaction(async (manager) => {
+      await this.notificationsService.createForListingChange(
+        {
+          listingId: listing.id,
+          listingOwnerId: listing.userId,
+          listingTitle: listing.title,
+          listingImageUrl: this.getPrimaryImageUrl(listing),
+          type: 'listing_deleted',
+          changes: [],
+        },
+        manager,
+      );
+      await manager.getRepository(ListingEntity).delete(id);
+    });
   }
 
   async uploadImages(
@@ -359,7 +419,7 @@ export class ListingsService {
     files: Express.Multer.File[],
     options: UploadListingImagesDto,
   ): Promise<Listing> {
-    await this.ensureOwner(listingId, userId);
+    const listing = await this.ensureOwner(listingId, userId);
     this.validateFiles(files);
 
     const existingCount = await this.imagesRepository.count({
@@ -379,8 +439,11 @@ export class ListingsService {
       await this.imagesRepository.update({ listingId }, { isPrimary: false });
     }
 
+    const uploadedImageUrls: string[] = [];
+
     for (const [index, file] of files.entries()) {
       const imageUrl = await this.imageStorageService.save(file);
+      uploadedImageUrls.push(imageUrl);
 
       await this.imagesRepository.save(
         this.imagesRepository.create({
@@ -392,6 +455,19 @@ export class ListingsService {
         }),
       );
     }
+
+    await this.notificationsService.createForListingChange({
+      listingId: listing.id,
+      listingOwnerId: listing.userId,
+      listingTitle: listing.title,
+      listingImageUrl: shouldSetPrimary
+        ? uploadedImageUrls[0]
+        : this.getPrimaryImageUrl(listing),
+      type: 'listing_photos_changed',
+      changes: [
+        { field: 'photos', oldValue: null, newValue: String(files.length) },
+      ],
+    });
 
     return this.findMine(listingId, userId);
   }
@@ -439,7 +515,13 @@ export class ListingsService {
     id: string,
     userId: string,
   ): Promise<ListingEntity> {
-    const listing = await this.listingsRepository.findOne({ where: { id } });
+    const listing = await this.listingsRepository.findOne({
+      relations: {
+        featureSelections: { feature: true },
+        images: true,
+      },
+      where: { id },
+    });
 
     if (!listing) {
       throw new NotFoundException('Listing not found.');
@@ -663,6 +745,10 @@ export class ListingsService {
 
       return first.createdAt.getTime() - second.createdAt.getTime();
     });
+  }
+
+  private getPrimaryImageUrl(listing: ListingEntity): string | null {
+    return this.sortImages(listing.images ?? [])[0]?.imageUrl ?? null;
   }
 
   private validateFiles(files: Express.Multer.File[]) {
