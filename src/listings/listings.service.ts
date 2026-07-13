@@ -278,6 +278,8 @@ export class ListingsService {
           brandId: input.brandId,
           modelId: input.modelId,
           title: input.title,
+          bodyType: input.bodyType ?? null,
+          condition: input.condition ?? null,
           description: input.description ?? null,
           year: input.year ?? null,
           mileageKm: input.mileageKm ?? null,
@@ -310,7 +312,7 @@ export class ListingsService {
       return listing.id;
     });
 
-    return this.findOwned(listingId, userId);
+    return this.findMine(listingId, userId);
   }
 
   async update(
@@ -343,7 +345,7 @@ export class ListingsService {
       }
     });
 
-    return this.findOwned(id, userId);
+    return this.findMine(id, userId);
   }
 
   async remove(id: string, userId: string): Promise<void> {
@@ -391,10 +393,10 @@ export class ListingsService {
       );
     }
 
-    return this.findOwned(listingId, userId);
+    return this.findMine(listingId, userId);
   }
 
-  private async findOwned(id: string, userId: string): Promise<Listing> {
+  async findMine(id: string, userId: string): Promise<Listing> {
     const listing = await this.createListingQuery()
       .where('listing.id = :id', { id })
       .andWhere('listing.userId = :userId', { userId })
@@ -533,6 +535,8 @@ export class ListingsService {
     this.addUpdate(updates, 'brandId', input.brandId);
     this.addUpdate(updates, 'modelId', input.modelId);
     this.addUpdate(updates, 'title', input.title);
+    this.addUpdate(updates, 'bodyType', input.bodyType);
+    this.addUpdate(updates, 'condition', input.condition);
     this.addUpdate(updates, 'description', input.description);
     this.addUpdate(updates, 'year', input.year);
     this.addUpdate(updates, 'mileageKm', input.mileageKm);
@@ -581,6 +585,8 @@ export class ListingsService {
       modelId: listing.modelId,
       modelName: listing.model.name,
       title: listing.title,
+      bodyType: listing.bodyType,
+      condition: listing.condition,
       description: listing.description,
       year: listing.year,
       mileageKm: listing.mileageKm,
@@ -595,6 +601,7 @@ export class ListingsService {
       contactPhone: listing.contactPhone,
       contactEmail: listing.contactEmail,
       sellerCreatedAt: listing.user?.createdAt?.toISOString() ?? null,
+      sellerName: listing.user.name,
       price: Number(listing.price),
       currency: listing.currency,
       status: listing.status,

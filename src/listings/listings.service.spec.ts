@@ -106,6 +106,8 @@ describe('ListingsService', () => {
       brandId: 'brand-1',
       modelId: 'model-1',
       title: 'BMW 320d',
+      bodyType: 'sedan',
+      condition: 'used',
       description: 'Clean car',
       year: 2020,
       mileageKm: 120000,
@@ -127,6 +129,7 @@ describe('ListingsService', () => {
       updatedAt: new Date('2026-07-02T10:00:00.000Z'),
       user: {
         id: 'user-1',
+        name: 'Driver Person',
         createdAt: new Date('2025-01-10T10:00:00.000Z'),
       } as UserEntity,
       brand: { id: 'brand-1', name: 'BMW' } as BrandEntity,
@@ -198,13 +201,16 @@ describe('ListingsService', () => {
     ).resolves.toEqual({
       data: [
         expect.objectContaining({
+          bodyType: 'sedan',
           brandName: 'BMW',
+          condition: 'used',
           engineLiters: 2,
           emissionStandard: 'euro_6d',
           powerHp: 190,
           primaryImageUrl: '/uploads/primary.webp',
           price: 18000,
           sellerCreatedAt: '2025-01-10T10:00:00.000Z',
+          sellerName: 'Driver Person',
           features: [
             {
               id: 'feature-1',
@@ -297,6 +303,8 @@ describe('ListingsService', () => {
         brandId: 'brand-1',
         modelId: 'model-1',
         title: 'BMW 320d',
+        bodyType: 'sedan',
+        condition: 'used',
         year: 2020,
         mileageKm: 120000,
         powerHp: 190,
@@ -310,6 +318,8 @@ describe('ListingsService', () => {
       }),
     ).resolves.toMatchObject({
       id: 'listing-1',
+      bodyType: 'sedan',
+      condition: 'used',
       engineLiters: 2,
       powerHp: 190,
     });
@@ -323,6 +333,8 @@ describe('ListingsService', () => {
     expect(listingsRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         currency: 'EUR',
+        bodyType: 'sedan',
+        condition: 'used',
         engineLiters: '2',
         emissionStandard: 'euro_6d',
         powerHp: 190,
@@ -440,6 +452,8 @@ describe('ListingsService', () => {
       service.update('listing-1', 'user-1', {
         modelId: 'model-2',
         title: 'Updated title',
+        bodyType: null,
+        condition: 'new',
         engineLiters: 3,
         emissionStandard: 'euro_6',
         featureKeys: ['leather_interior'],
@@ -455,6 +469,8 @@ describe('ListingsService', () => {
     expect(listingsRepository.update).toHaveBeenCalledWith('listing-1', {
       modelId: 'model-2',
       title: 'Updated title',
+      bodyType: null,
+      condition: 'new',
       engineLiters: '3',
       emissionStandard: 'euro_6',
     });
@@ -464,6 +480,27 @@ describe('ListingsService', () => {
       expect.anything(),
     );
     expect(dataSource.transaction).toHaveBeenCalled();
+  });
+
+  it('returns a listing only when it belongs to the authenticated user', async () => {
+    const { populateListingFeatures, queryBuilder, service } = createService();
+    const listing = listingEntity({ status: 'draft' });
+
+    queryBuilder.getOne.mockResolvedValue(listing);
+
+    await expect(service.findMine('listing-1', 'user-1')).resolves.toMatchObject({
+      id: 'listing-1',
+      status: 'draft',
+      userId: 'user-1',
+    });
+    expect(queryBuilder.where).toHaveBeenCalledWith('listing.id = :id', {
+      id: 'listing-1',
+    });
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'listing.userId = :userId',
+      { userId: 'user-1' },
+    );
+    expect(populateListingFeatures).toHaveBeenCalledWith([listing]);
   });
 
   it('blocks users from modifying listings they do not own', async () => {
