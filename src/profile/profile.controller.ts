@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Patch, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 
 import { JwtAuthGuard } from '../auth/guards';
 import { AuthenticatedRequest } from '../auth/types';
@@ -34,5 +44,13 @@ export class ProfileController {
     @Query() query: ListListingsQueryDto,
   ) {
     return this.listingsService.listMine(request.user.id, query);
+  }
+
+  @Get('listings/:id')
+  findMyListing(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.listingsService.findMine(id, request.user.id);
   }
 }
