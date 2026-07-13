@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import { ListListingsQueryDto } from '../listings/dto';
+import { ListFavoritesQueryDto } from './dto';
 import { ListingEntity } from '../listings/entities';
 import { ListingsService } from '../listings/listings.service';
 import { FavoriteEntity } from './entities';
@@ -17,7 +17,7 @@ export class FavoritesService {
     private readonly listingsService: ListingsService,
   ) {}
 
-  async list(userId: string, query: ListListingsQueryDto) {
+  async list(userId: string, query: ListFavoritesQueryDto) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const offset = (page - 1) * limit;
@@ -29,8 +29,8 @@ export class FavoritesService {
     const [favorites, total] = await queryBuilder.getManyAndCount();
 
     return {
-      data: favorites.map((favorite) =>
-        this.listingsService.toListingResponse(favorite.listing),
+      data: await this.listingsService.toListingResponses(
+        favorites.map((favorite) => favorite.listing),
       ),
       meta: {
         page,
@@ -72,6 +72,7 @@ export class FavoritesService {
       .innerJoinAndSelect('favorite.listing', 'listing')
       .innerJoinAndSelect('listing.brand', 'brand')
       .innerJoinAndSelect('listing.model', 'model')
+      .innerJoinAndSelect('listing.user', 'user')
       .leftJoinAndSelect('listing.images', 'image')
       .where('favorite.userId = :userId', { userId })
       .andWhere('listing.status = :status', { status: 'published' });

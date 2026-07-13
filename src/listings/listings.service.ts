@@ -394,8 +394,14 @@ export class ListingsService {
     return this.findOwned(listingId, userId);
   }
 
-  toListingResponse(listing: ListingEntity): Listing {
-    return this.toListing(listing);
+  async toListingResponse(listing: ListingEntity): Promise<Listing> {
+    const [response] = await this.toListingResponses([listing]);
+    return response;
+  }
+
+  async toListingResponses(listings: ListingEntity[]): Promise<Listing[]> {
+    await this.listingFeaturesService.populateListingFeatures(listings);
+    return listings.map((listing) => this.toListing(listing));
   }
 
   private async findOwned(id: string, userId: string): Promise<Listing> {

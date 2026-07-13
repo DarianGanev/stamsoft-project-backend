@@ -13,7 +13,7 @@ import {
 
 import { JwtAuthGuard } from '../auth/guards';
 import { AuthenticatedRequest } from '../auth/types';
-import { ListListingsQueryDto } from '../listings/dto';
+import { ListFavoritesQueryDto } from './dto';
 import { FavoritesService } from './favorites.service';
 
 @Controller('me/favorites')
@@ -22,7 +22,10 @@ export class FavoritesController {
   constructor(private readonly favoritesService: FavoritesService) {}
 
   @Get()
-  list(@Req() request: AuthenticatedRequest, @Query() query: ListListingsQueryDto) {
+  list(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: ListFavoritesQueryDto,
+  ) {
     return this.favoritesService.list(request.user.id, query);
   }
 
