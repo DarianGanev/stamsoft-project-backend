@@ -10,6 +10,7 @@ import { BrandsModule } from './brands/brands.module';
 import { createTypeOrmOptions } from './database/typeorm.options';
 import { FavoritesModule } from './favorites/favorites.module';
 import { ListingsModule } from './listings/listings.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { ProfileModule } from './profile/profile.module';
 import { UsersModule } from './users/users.module';
 
@@ -29,6 +30,7 @@ import { UsersModule } from './users/users.module';
     ListingsModule,
     ProfileModule,
     FavoritesModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
