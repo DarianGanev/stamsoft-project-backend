@@ -396,6 +396,16 @@ export class ListingsService {
     return this.findMine(listingId, userId);
   }
 
+  async toListingResponse(listing: ListingEntity): Promise<Listing> {
+    const [response] = await this.toListingResponses([listing]);
+    return response;
+  }
+
+  async toListingResponses(listings: ListingEntity[]): Promise<Listing[]> {
+    await this.listingFeaturesService.populateListingFeatures(listings);
+    return listings.map((listing) => this.toListing(listing));
+  }
+
   async findMine(id: string, userId: string): Promise<Listing> {
     const listing = await this.createListingQuery()
       .where('listing.id = :id', { id })

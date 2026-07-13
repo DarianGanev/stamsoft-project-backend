@@ -8,6 +8,7 @@ import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { BrandsModule } from './brands/brands.module';
 import { createTypeOrmOptions } from './database/typeorm.options';
+import { FavoritesModule } from './favorites/favorites.module';
 import { ListingsModule } from './listings/listings.module';
 import { ProfileModule } from './profile/profile.module';
 import { UsersModule } from './users/users.module';
@@ -27,6 +28,7 @@ import { UsersModule } from './users/users.module';
     BrandsModule,
     ListingsModule,
     ProfileModule,
+    FavoritesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

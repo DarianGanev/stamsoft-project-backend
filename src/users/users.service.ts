@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import { isUniqueViolation } from '../database/utils/postgres-error.utils';
 import { DEFAULT_USER_ROLE } from './constants';
 import { UserEntity } from './entities';
 import {
@@ -35,7 +36,7 @@ export class UsersService {
 
       return this.toSafeUser(this.toUserRecord(user));
     } catch (error) {
-      if (this.isUniqueEmailError(error)) {
+      if (isUniqueViolation(error)) {
         throw new ConflictException('A user with this email already exists.');
       }
 
@@ -117,15 +118,6 @@ export class UsersService {
       phone: user.phone,
       role: user.role,
     };
-  }
-
-  private isUniqueEmailError(error: unknown): boolean {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      error.code === '23505'
-    );
   }
 
   private toUserRecord(user: UserEntity): UserRecord {
