@@ -489,7 +489,30 @@ describe('ListingsService', () => {
     queryBuilder.getOne.mockResolvedValue(listing);
 
     await expect(service.findMine('listing-1', 'user-1')).resolves.toMatchObject({
+      bodyType: 'sedan',
+      condition: 'used',
+      features: [
+        {
+          category: 'safety',
+          id: 'feature-1',
+          key: 'abs',
+          label: 'Антиблокираща система',
+        },
+      ],
       id: 'listing-1',
+      images: [
+        {
+          id: 'image-1',
+          isPrimary: true,
+          url: '/uploads/primary.webp',
+        },
+        {
+          id: 'image-2',
+          isPrimary: false,
+          url: '/uploads/second.webp',
+        },
+      ],
+      sellerName: 'Driver Person',
       status: 'draft',
       userId: 'user-1',
     });
