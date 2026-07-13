@@ -406,7 +406,6 @@ export class ListingsService {
     return listings.map((listing) => this.toListing(listing));
   }
 
-  private async findOwned(id: string, userId: string): Promise<Listing> {
   async findMine(id: string, userId: string): Promise<Listing> {
     const listing = await this.createListingQuery()
       .where('listing.id = :id', { id })
