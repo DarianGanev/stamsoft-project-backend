@@ -2,9 +2,10 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import { ListFavoritesQueryDto } from './dto';
+import { isUniqueViolation } from '../database/utils/postgres-error.utils';
 import { ListingEntity } from '../listings/entities';
 import { ListingsService } from '../listings/listings.service';
+import { ListFavoritesQueryDto } from './dto';
 import { FavoriteEntity } from './entities';
 
 @Injectable()
@@ -53,7 +54,7 @@ export class FavoritesService {
           this.favoritesRepository.create({ listingId, userId }),
         );
       } catch (error) {
-        if (!this.isUniqueFavoriteError(error)) {
+        if (!isUniqueViolation(error)) {
           throw error;
         }
       }
@@ -98,14 +99,5 @@ export class FavoritesService {
     if (!listing) {
       throw new NotFoundException('Listing not found.');
     }
-  }
-
-  private isUniqueFavoriteError(error: unknown): boolean {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      error.code === '23505'
-    );
   }
 }
