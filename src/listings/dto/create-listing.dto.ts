@@ -14,17 +14,21 @@ import {
 } from 'class-validator';
 
 import {
+  BODY_TYPES,
   CURRENCIES,
   EMISSION_STANDARDS,
   FUEL_TYPES,
   MAX_LISTING_FEATURES_PER_LISTING,
   TRANSMISSION_TYPES,
+  VEHICLE_CONDITIONS,
 } from '../constants';
 import {
+  BodyType,
   Currency,
   EmissionStandard,
   FuelType,
   TransmissionType,
+  VehicleCondition,
 } from '../types';
 
 export class CreateListingDto {
@@ -37,6 +41,14 @@ export class CreateListingDto {
   @IsString()
   @IsNotEmpty()
   title: string;
+
+  @IsOptional()
+  @IsIn(BODY_TYPES)
+  bodyType?: BodyType | null;
+
+  @IsOptional()
+  @IsIn(VEHICLE_CONDITIONS)
+  condition?: VehicleCondition | null;
 
   @IsOptional()
   @IsString()

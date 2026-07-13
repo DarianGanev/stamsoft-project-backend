@@ -1,5 +1,6 @@
 import { ListingFeatureCategory } from './listing-feature.types';
 
+export type BodyType = 'sedan' | 'suv' | 'hatchback';
 export type ListingStatus =
   'pending' | 'published' | 'rejected' | 'draft' | 'sold' | 'archived';
 export type ListingModerationStatus = 'published' | 'rejected';
@@ -11,6 +12,7 @@ export type EmissionStandard =
 export type ListingSort =
   'newest' | 'price-low' | 'price-high' | 'price_asc' | 'price_desc';
 export type Currency = 'EUR' | 'BGN';
+export type VehicleCondition = 'new' | 'used';
 
 export interface ListingSelectedFeature {
   id: string;
@@ -35,6 +37,8 @@ export interface Listing {
   modelId: string;
   modelName: string;
   title: string;
+  bodyType: BodyType | null;
+  condition: VehicleCondition | null;
   description: string | null;
   year: number | null;
   mileageKm: number | null;
@@ -48,6 +52,7 @@ export interface Listing {
   contactPhone: string | null;
   contactEmail: string | null;
   sellerCreatedAt: string | null;
+  sellerName: string;
   price: number;
   currency: Currency;
   status: ListingStatus;
@@ -68,6 +73,8 @@ export interface ListingRecord {
   model_id: string;
   model_name: string;
   title: string;
+  body_type: BodyType | null;
+  condition: VehicleCondition | null;
   description: string | null;
   year: number | null;
   mileage_km: number | null;

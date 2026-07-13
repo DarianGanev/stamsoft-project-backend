@@ -1,5 +1,6 @@
 export type {
   AdminListListingsInput,
+  BodyType,
   Currency,
   EmissionStandard,
   FuelType,
@@ -11,6 +12,7 @@ export type {
   ListingSort,
   ListingStatus,
   TransmissionType,
+  VehicleCondition,
 } from './listing.types';
 export type {
   GroupedListingFeatures,

@@ -13,6 +13,33 @@ const validListing = {
 };
 
 describe('CreateListingDto', () => {
+  it('accepts supported vehicle attributes', () => {
+    const errors = validateSync(
+      plainToInstance(CreateListingDto, {
+        ...validListing,
+        bodyType: 'sedan',
+        condition: 'used',
+      }),
+    );
+
+    expect(errors).toHaveLength(0);
+  });
+
+  it('rejects unsupported vehicle attributes', () => {
+    const errors = validateSync(
+      plainToInstance(CreateListingDto, {
+        ...validListing,
+        bodyType: 'spaceship',
+        condition: 'unknown',
+      }),
+    );
+
+    expect(errors).toHaveLength(2);
+    expect(errors.map((error) => error.property)).toEqual(
+      expect.arrayContaining(['bodyType', 'condition']),
+    );
+  });
+
   it('accepts a supported emission standard', () => {
     const errors = validateSync(
       plainToInstance(CreateListingDto, {

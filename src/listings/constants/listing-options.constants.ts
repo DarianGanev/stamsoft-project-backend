@@ -1,4 +1,5 @@
 import type {
+  BodyType,
   Currency,
   EmissionStandard,
   FuelType,
@@ -6,7 +7,14 @@ import type {
   ListingSort,
   ListingStatus,
   TransmissionType,
+  VehicleCondition,
 } from '../types';
+
+export const BODY_TYPES = [
+  'sedan',
+  'suv',
+  'hatchback',
+] as const satisfies readonly BodyType[];
 
 export const FUEL_TYPES: readonly FuelType[] = [
   'gasoline',
@@ -59,3 +67,8 @@ export const LISTING_SORTS: readonly ListingSort[] = [
 ] as const;
 
 export const CURRENCIES: readonly Currency[] = ['EUR', 'BGN'] as const;
+
+export const VEHICLE_CONDITIONS = [
+  'new',
+  'used',
+] as const satisfies readonly VehicleCondition[];

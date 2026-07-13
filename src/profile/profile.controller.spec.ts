@@ -10,6 +10,7 @@ describe('ProfileController', () => {
       updateProfile: jest.fn(),
     };
     const listingsService = {
+      findMine: jest.fn(),
       listMine: jest.fn(),
     };
     const request = {
@@ -71,5 +72,20 @@ describe('ProfileController', () => {
       meta: { page: 1, limit: 10, total: 0 },
     });
     expect(listingsService.listMine).toHaveBeenCalledWith('user-1', query);
+  });
+
+  it('returns one listing owned by the authenticated user', async () => {
+    const { controller, listingsService, request } = createController();
+    const listing = { id: 'listing-1', status: 'draft', userId: 'user-1' };
+
+    listingsService.findMine.mockResolvedValue(listing);
+
+    await expect(
+      controller.findMyListing('listing-1', request),
+    ).resolves.toEqual(listing);
+    expect(listingsService.findMine).toHaveBeenCalledWith(
+      'listing-1',
+      'user-1',
+    );
   });
 });
