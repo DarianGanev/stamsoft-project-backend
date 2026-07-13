@@ -6,6 +6,7 @@ import {
   ListingFeatureEntity,
   ListingFeatureSelectionEntity,
 } from '../../listings/entities';
+import { NotificationEntity } from '../../notifications/entities';
 import { UserEntity } from '../../users/entities';
 
 export const databaseEntities = [
@@ -17,4 +18,5 @@ export const databaseEntities = [
   ListingFeatureEntity,
   ListingFeatureSelectionEntity,
   FavoriteEntity,
+  NotificationEntity,
 ];
