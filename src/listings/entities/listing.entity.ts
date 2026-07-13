@@ -14,18 +14,22 @@ import {
 import { BrandEntity, VehicleModelEntity } from '../../brands/entities';
 import { UserEntity } from '../../users/entities';
 import {
+  BODY_TYPES,
   DEFAULT_LISTING_STATUS,
   EMISSION_STANDARDS,
   FUEL_TYPES,
   LISTING_STATUSES,
   TRANSMISSION_TYPES,
+  VEHICLE_CONDITIONS,
 } from '../constants';
 import {
+  BodyType,
   Currency,
   EmissionStandard,
   FuelType,
   ListingStatus,
   TransmissionType,
+  VehicleCondition,
 } from '../types';
 import { ImageEntity } from './image.entity';
 import { ListingFeatureSelectionEntity } from './listing-feature-selection.entity';
@@ -66,6 +70,23 @@ export class ListingEntity {
 
   @Column({ type: 'text' })
   title: string;
+
+  @Column({
+    name: 'body_type',
+    enum: [...BODY_TYPES],
+    enumName: 'listing_body_type',
+    nullable: true,
+    type: 'enum',
+  })
+  bodyType: BodyType | null;
+
+  @Column({
+    enum: [...VEHICLE_CONDITIONS],
+    enumName: 'vehicle_condition',
+    nullable: true,
+    type: 'enum',
+  })
+  condition: VehicleCondition | null;
 
   @Column({ nullable: true, type: 'text' })
   description: string | null;
