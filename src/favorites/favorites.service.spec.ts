@@ -143,6 +143,19 @@ describe('FavoritesService', () => {
     expect(queryBuilder.take).toHaveBeenCalledWith(6);
   });
 
+  it('uses the favorites pagination defaults', async () => {
+    const { queryBuilder, service } = createService();
+
+    queryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+
+    await expect(service.list('user-1', {})).resolves.toEqual({
+      data: [],
+      meta: { page: 1, limit: 6, total: 0 },
+    });
+    expect(queryBuilder.skip).toHaveBeenCalledWith(0);
+    expect(queryBuilder.take).toHaveBeenCalledWith(6);
+  });
+
   it('saves a published listing as a favorite', async () => {
     const { favoritesRepository, listingsRepository, queryBuilder, service } =
       createService();

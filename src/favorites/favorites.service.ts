@@ -19,7 +19,7 @@ export class FavoritesService {
 
   async list(userId: string, query: ListFavoritesQueryDto) {
     const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
+    const limit = query.limit ?? 6;
     const offset = (page - 1) * limit;
     const queryBuilder = this.createFavoriteQuery(userId)
       .orderBy('favorite.createdAt', 'DESC')
