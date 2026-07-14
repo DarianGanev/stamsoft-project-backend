@@ -14,6 +14,13 @@ export type NotificationChange = {
   newValue: NotificationChangeValue;
 };
 
+export type ListingReferenceChangeValues = Partial<
+  Record<
+    Extract<ListingNotificationField, 'brand' | 'model'>,
+    Readonly<{ oldValue: string; newValue: string }>
+  >
+>;
+
 export type Notification = {
   id: string;
   userId: string;
@@ -29,6 +36,7 @@ export type Notification = {
 export type CreateListingNotificationInput = {
   listingId: string;
   listingOwnerId: string;
+  includeListingOwner?: boolean;
   listingTitle: string;
   listingImageUrl: string | null;
   type: NotificationType;

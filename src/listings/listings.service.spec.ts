@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 
@@ -63,9 +64,11 @@ describe('ListingsService', () => {
     };
     const brandsRepository = {
       exists: jest.fn(),
+      findOne: jest.fn(),
     };
     const modelsRepository = {
       exists: jest.fn(),
+      findOne: jest.fn(),
     };
     const imageStorageService = {
       save: jest.fn(),
@@ -467,6 +470,7 @@ describe('ListingsService', () => {
     listingsRepository.findOne.mockResolvedValue(listingEntity());
     brandsRepository.exists.mockResolvedValue(true);
     modelsRepository.exists.mockResolvedValue(true);
+    modelsRepository.findOne.mockResolvedValue({ name: 'M3' });
     queryBuilder.getOne.mockResolvedValue(
       listingEntity({
         modelId: 'model-2',
@@ -509,7 +513,7 @@ describe('ListingsService', () => {
     expect(notificationsService.createForListingChange).toHaveBeenCalledWith(
       {
         changes: [
-          { field: 'model', oldValue: 'model-1', newValue: 'model-2' },
+          { field: 'model', oldValue: '320d', newValue: 'M3' },
           {
             field: 'title',
             oldValue: 'BMW 320d',
@@ -649,6 +653,43 @@ describe('ListingsService', () => {
     });
   });
 
+  it('returns the uploaded listing when notification delivery fails', async () => {
+    const {
+      imagesRepository,
+      imageStorageService,
+      listingsRepository,
+      notificationsService,
+      queryBuilder,
+      service,
+    } = createService();
+    const file = {
+      mimetype: 'image/webp',
+      originalname: 'car.webp',
+      size: 1024,
+    } as Express.Multer.File;
+    const loggerSpy = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+
+    listingsRepository.findOne.mockResolvedValue(listingEntity());
+    imagesRepository.count.mockResolvedValue(0);
+    imageStorageService.save.mockResolvedValue('/uploads/car.webp');
+    notificationsService.createForListingChange.mockRejectedValue(
+      new Error('Notification storage unavailable.'),
+    );
+    queryBuilder.getOne.mockResolvedValue(listingEntity());
+
+    try {
+      await expect(
+        service.uploadImages('listing-1', 'user-1', [file], {}),
+      ).resolves.toMatchObject({ id: 'listing-1' });
+      expect(imagesRepository.save).toHaveBeenCalled();
+      expect(loggerSpy).toHaveBeenCalled();
+    } finally {
+      loggerSpy.mockRestore();
+    }
+  });
+
   it('notifies favorite users when moderation hides a published listing', async () => {
     const { listingsRepository, notificationsService, queryBuilder, service } =
       createService();
@@ -664,6 +705,7 @@ describe('ListingsService', () => {
         changes: [
           { field: 'status', oldValue: 'published', newValue: 'rejected' },
         ],
+        includeListingOwner: true,
         listingId: 'listing-1',
         listingImageUrl: '/uploads/primary.webp',
         listingOwnerId: 'user-1',

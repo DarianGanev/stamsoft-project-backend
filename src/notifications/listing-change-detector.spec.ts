@@ -64,10 +64,25 @@ describe('detectListingChanges', () => {
   });
 
   it('records clearing a nullable vehicle field', () => {
-    expect(
-      detectListingChanges(listing(), { bodyType: null }, []),
-    ).toEqual([
+    expect(detectListingChanges(listing(), { bodyType: null }, [])).toEqual([
       { field: 'bodyType', oldValue: 'hatchback', newValue: null },
+    ]);
+  });
+
+  it('uses resolved brand and model names instead of ids', () => {
+    expect(
+      detectListingChanges(
+        listing(),
+        { brandId: 'brand-2', modelId: 'model-2' },
+        [],
+        {
+          brand: { oldValue: 'Volkswagen', newValue: 'Audi' },
+          model: { oldValue: 'Golf', newValue: 'A4' },
+        },
+      ),
+    ).toEqual([
+      { field: 'brand', oldValue: 'Volkswagen', newValue: 'Audi' },
+      { field: 'model', oldValue: 'Golf', newValue: 'A4' },
     ]);
   });
 

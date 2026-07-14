@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -10,6 +11,7 @@ import { Brackets, DataSource, Repository, SelectQueryBuilder } from 'typeorm';
 import { BrandEntity, VehicleModelEntity } from '../brands/entities';
 import { detectListingChanges } from '../notifications/listing-change-detector';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ListingReferenceChangeValues } from '../notifications/types';
 import {
   CreateListingDto,
   ListListingsQueryDto,
@@ -36,6 +38,8 @@ import {
 
 @Injectable()
 export class ListingsService {
+  private readonly logger = new Logger(ListingsService.name);
+
   constructor(
     @InjectRepository(ListingEntity)
     private readonly listingsRepository: Repository<ListingEntity>,
@@ -261,6 +265,7 @@ export class ListingsService {
           {
             listingId: listing.id,
             listingOwnerId: listing.userId,
+            includeListingOwner: true,
             listingTitle: listing.title,
             listingImageUrl: this.getPrimaryImageUrl(listing),
             type: 'listing_unavailable',
@@ -355,11 +360,22 @@ export class ListingsService {
     const beforeFeatureKeys = (listing.featureSelections ?? [])
       .filter((selection) => selection.feature)
       .map((selection) => selection.feature.key);
-    const changes = detectListingChanges(listing, input, beforeFeatureKeys);
+    let referenceValues: ListingReferenceChangeValues = {};
 
     if (input.brandId !== undefined || input.modelId !== undefined) {
       await this.validateBrandModelPair(brandId, modelId);
+      referenceValues = await this.resolveListingReferenceChangeValues(
+        listing,
+        input,
+      );
     }
+
+    const changes = detectListingChanges(
+      listing,
+      input,
+      beforeFeatureKeys,
+      referenceValues,
+    );
 
     await this.dataSource.transaction(async (manager) => {
       const listingsRepository = manager.getRepository(ListingEntity);
@@ -456,18 +472,25 @@ export class ListingsService {
       );
     }
 
-    await this.notificationsService.createForListingChange({
-      listingId: listing.id,
-      listingOwnerId: listing.userId,
-      listingTitle: listing.title,
-      listingImageUrl: shouldSetPrimary
-        ? uploadedImageUrls[0]
-        : this.getPrimaryImageUrl(listing),
-      type: 'listing_photos_changed',
-      changes: [
-        { field: 'photos', oldValue: null, newValue: String(files.length) },
-      ],
-    });
+    try {
+      await this.notificationsService.createForListingChange({
+        listingId: listing.id,
+        listingOwnerId: listing.userId,
+        listingTitle: listing.title,
+        listingImageUrl: shouldSetPrimary
+          ? uploadedImageUrls[0]
+          : this.getPrimaryImageUrl(listing),
+        type: 'listing_photos_changed',
+        changes: [
+          { field: 'photos', oldValue: null, newValue: String(files.length) },
+        ],
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to create photo-change notification for listing ${listing.id}.`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
 
     return this.findMine(listingId, userId);
   }
@@ -517,8 +540,10 @@ export class ListingsService {
   ): Promise<ListingEntity> {
     const listing = await this.listingsRepository.findOne({
       relations: {
+        brand: true,
         featureSelections: { feature: true },
         images: true,
+        model: true,
       },
       where: { id },
     });
@@ -552,6 +577,52 @@ export class ListingsService {
         'Selected model does not exist for the selected brand.',
       );
     }
+  }
+
+  private async resolveListingReferenceChangeValues(
+    listing: ListingEntity,
+    input: UpdateListingDto,
+  ): Promise<ListingReferenceChangeValues> {
+    const values: ListingReferenceChangeValues = {};
+
+    if (input.brandId !== undefined && input.brandId !== listing.brandId) {
+      const brand = await this.brandsRepository.findOne({
+        select: { name: true },
+        where: { id: input.brandId },
+      });
+
+      if (!brand) {
+        throw new BadRequestException('Selected brand does not exist.');
+      }
+
+      values.brand = {
+        oldValue: listing.brand.name,
+        newValue: brand.name,
+      };
+    }
+
+    if (input.modelId !== undefined && input.modelId !== listing.modelId) {
+      const model = await this.modelsRepository.findOne({
+        select: { name: true },
+        where: {
+          brandId: input.brandId ?? listing.brandId,
+          id: input.modelId,
+        },
+      });
+
+      if (!model) {
+        throw new BadRequestException(
+          'Selected model does not exist for the selected brand.',
+        );
+      }
+
+      values.model = {
+        oldValue: listing.model.name,
+        newValue: model.name,
+      };
+    }
+
+    return values;
   }
 
   private createListingQuery(): SelectQueryBuilder<ListingEntity> {

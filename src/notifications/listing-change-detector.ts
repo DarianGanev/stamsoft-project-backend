@@ -2,6 +2,7 @@ import { UpdateListingDto } from '../listings/dto';
 import { ListingEntity } from '../listings/entities';
 import {
   ListingNotificationField,
+  ListingReferenceChangeValues,
   NotificationChange,
   NotificationChangeValue,
 } from './types';
@@ -40,6 +41,7 @@ export function detectListingChanges(
   before: ListingEntity,
   input: UpdateListingDto,
   beforeFeatureKeys: readonly string[],
+  referenceValues: ListingReferenceChangeValues = {},
 ): NotificationChange[] {
   const changes: NotificationChange[] = [];
 
@@ -54,7 +56,16 @@ export function detectListingChanges(
     const newValue = normalizeValue(mapping.field, submittedValue);
 
     if (oldValue !== newValue) {
-      changes.push({ field: mapping.field, oldValue, newValue });
+      const resolvedValues =
+        mapping.field === 'brand' || mapping.field === 'model'
+          ? referenceValues[mapping.field]
+          : undefined;
+
+      changes.push({
+        field: mapping.field,
+        oldValue: resolvedValues?.oldValue ?? oldValue,
+        newValue: resolvedValues?.newValue ?? newValue,
+      });
     }
   }
 

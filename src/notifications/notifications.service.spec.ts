@@ -139,6 +139,34 @@ describe('NotificationsService', () => {
     expect(notificationsRepository.save).not.toHaveBeenCalled();
   });
 
+  it('includes the listing owner when moderation requests it', async () => {
+    const { favoritesRepository, notificationsRepository, service } =
+      createService();
+    favoritesRepository.find.mockResolvedValue([
+      { userId: 'user-1' } as FavoriteEntity,
+    ]);
+    notificationsRepository.save.mockResolvedValue([]);
+
+    await service.createForListingChange({
+      listingId: 'listing-1',
+      listingOwnerId: 'owner-1',
+      includeListingOwner: true,
+      listingTitle: 'Volkswagen Golf',
+      listingImageUrl: null,
+      type: 'listing_unavailable',
+      changes: [
+        { field: 'status', oldValue: 'published', newValue: 'rejected' },
+      ],
+    });
+
+    expect(notificationsRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'owner-1' }),
+    );
+    expect(notificationsRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-1' }),
+    );
+  });
+
   it('marks only an owned notification as read', async () => {
     const { notificationsRepository, service } = createService();
     notificationsRepository.findOne.mockResolvedValue(notificationEntity());

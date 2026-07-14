@@ -56,19 +56,19 @@ export class NotificationsService {
       select: { userId: true },
       where: { listingId: input.listingId },
     });
-    const recipientIds = [
-      ...new Set(
-        favorites
-          .map((favorite) => favorite.userId)
-          .filter((userId) => userId !== input.listingOwnerId),
-      ),
-    ];
+    const recipientIds = new Set(favorites.map((favorite) => favorite.userId));
 
-    if (recipientIds.length === 0) {
+    if (input.includeListingOwner) {
+      recipientIds.add(input.listingOwnerId);
+    } else {
+      recipientIds.delete(input.listingOwnerId);
+    }
+
+    if (recipientIds.size === 0) {
       return;
     }
 
-    const notifications = recipientIds.map((userId) =>
+    const notifications = [...recipientIds].map((userId) =>
       notificationsRepository.create({
         userId,
         listingId: input.listingId,

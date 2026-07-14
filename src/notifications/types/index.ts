@@ -1,6 +1,7 @@
 export type {
   CreateListingNotificationInput,
   ListingNotificationField,
+  ListingReferenceChangeValues,
   Notification,
   NotificationChange,
   NotificationChangeValue,
