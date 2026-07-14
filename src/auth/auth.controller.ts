@@ -8,6 +8,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import { Response } from 'express';
 
 import { AuthService } from './auth.service';
@@ -68,6 +69,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
   me(@Req() request: AuthenticatedRequest) {
     return request.user;
   }

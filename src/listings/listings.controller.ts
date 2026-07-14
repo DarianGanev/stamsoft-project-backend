@@ -15,6 +15,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth } from '@nestjs/swagger';
 
 import { JwtAuthGuard } from '../auth/guards';
 import { AuthenticatedRequest } from '../auth/types';
@@ -41,6 +42,7 @@ export class ListingsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
   @Post()
   create(
     @Req() request: AuthenticatedRequest,
@@ -50,6 +52,7 @@ export class ListingsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
   @Patch(':id')
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -60,6 +63,7 @@ export class ListingsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
   @Delete(':id')
   @HttpCode(204)
   remove(
@@ -70,6 +74,7 @@ export class ListingsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
   @Post(':id/images')
   @UseInterceptors(FilesInterceptor('images'))
   uploadImages(

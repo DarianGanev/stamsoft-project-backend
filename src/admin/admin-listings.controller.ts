@@ -9,6 +9,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth } from '@nestjs/swagger';
 
 import { AdminGuard, JwtAuthGuard } from '../auth/guards';
 import { AuthenticatedRequest } from '../auth/types';
@@ -17,6 +18,7 @@ import { ListAdminListingsQueryDto, ModerateListingDto } from './dto';
 
 @Controller('admin/listings')
 @UseGuards(JwtAuthGuard, AdminGuard)
+@ApiBearerAuth('access-token')
 export class AdminListingsController {
   constructor(private readonly listingsService: ListingsService) {}
 

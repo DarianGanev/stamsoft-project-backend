@@ -9,6 +9,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth } from '@nestjs/swagger';
 
 import { JwtAuthGuard } from '../auth/guards';
 import { AuthenticatedRequest } from '../auth/types';
@@ -19,6 +20,7 @@ import { UpdateProfileDto } from './dto';
 
 @Controller('me')
 @UseGuards(JwtAuthGuard)
+@ApiBearerAuth('access-token')
 export class ProfileController {
   constructor(
     private readonly usersService: UsersService,

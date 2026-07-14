@@ -10,6 +10,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth } from '@nestjs/swagger';
 
 import { JwtAuthGuard } from '../auth/guards';
 import { AuthenticatedRequest } from '../auth/types';
@@ -18,6 +19,7 @@ import { FavoritesService } from './favorites.service';
 
 @Controller('me/favorites')
 @UseGuards(JwtAuthGuard)
+@ApiBearerAuth('access-token')
 export class FavoritesController {
   constructor(private readonly favoritesService: FavoritesService) {}
 
