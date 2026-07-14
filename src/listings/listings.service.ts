@@ -25,6 +25,8 @@ import {
   ListingImage,
   ListingModerationStatus,
   ListingSelectedFeature,
+  RecommendationCandidate,
+  RecommendationCandidateInput,
 } from './types';
 import { ListingFeaturesService } from './listing-features.service';
 import { LocalImageStorageService } from './local-image-storage.service';
@@ -34,6 +36,8 @@ import {
   MAX_IMAGE_SIZE_BYTES,
   MAX_IMAGES_PER_LISTING,
   MAX_IMAGES_PER_UPLOAD,
+  PUBLISHED_LISTING_STATUS,
+  RECOMMENDATION_CANDIDATE_LIMIT,
 } from './constants';
 
 @Injectable()
@@ -133,6 +137,76 @@ export class ListingsService {
         total,
       },
     };
+  }
+
+  async findRecommendationCandidates(
+    input: RecommendationCandidateInput,
+  ): Promise<RecommendationCandidate[]> {
+    this.validateRecommendationCandidateInput(input);
+
+    const queryBuilder = this.listingsRepository
+      .createQueryBuilder('listing')
+      .innerJoinAndSelect('listing.brand', 'brand')
+      .innerJoinAndSelect('listing.model', 'model')
+      .where('listing.status = :status', {
+        status: PUBLISHED_LISTING_STATUS,
+      })
+      .orderBy('listing.createdAt', 'DESC')
+      .take(RECOMMENDATION_CANDIDATE_LIMIT);
+
+    this.addFilter(
+      queryBuilder,
+      'listing.price >= :minPrice',
+      'minPrice',
+      input.minPrice,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.price <= :maxPrice',
+      'maxPrice',
+      input.maxPrice,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.year >= :minYear',
+      'minYear',
+      input.minYear,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.mileageKm <= :maxMileage',
+      'maxMileage',
+      input.maxMileage,
+    );
+    this.addFilter(
+      queryBuilder,
+      'listing.location ILIKE :location',
+      'location',
+      input.location?.trim() ? `%${input.location.trim()}%` : undefined,
+    );
+    this.addArrayFilter(
+      queryBuilder,
+      'listing.fuel IN (:...fuels)',
+      'fuels',
+      input.fuels,
+    );
+    this.addArrayFilter(
+      queryBuilder,
+      'listing.transmission IN (:...transmissions)',
+      'transmissions',
+      input.transmissions,
+    );
+    this.addArrayFilter(
+      queryBuilder,
+      'listing.bodyType IN (:...bodyTypes)',
+      'bodyTypes',
+      input.bodyTypes,
+    );
+
+    const listings = await queryBuilder.getMany();
+    await this.listingFeaturesService.populateListingFeatures(listings);
+
+    return listings.map((listing) => this.toRecommendationCandidate(listing));
   }
 
   async listMine(userId: string, query: ListListingsQueryDto) {
@@ -647,6 +721,19 @@ export class ListingsService {
     queryBuilder.andWhere(expression, { [key]: value });
   }
 
+  private addArrayFilter(
+    queryBuilder: SelectQueryBuilder<ListingEntity>,
+    expression: string,
+    key: string,
+    values: readonly string[] | undefined,
+  ): void {
+    if (!values?.length) {
+      return;
+    }
+
+    queryBuilder.andWhere(expression, { [key]: [...new Set(values)] });
+  }
+
   private addSearch(
     queryBuilder: SelectQueryBuilder<ListingEntity>,
     search: string | undefined,
@@ -792,6 +879,50 @@ export class ListingsService {
         category: selection.feature.category,
         label: selection.feature.label,
       }));
+  }
+
+  private toRecommendationCandidate(
+    listing: ListingEntity,
+  ): RecommendationCandidate {
+    return {
+      id: listing.id,
+      title: listing.title,
+      brandName: listing.brand.name,
+      modelName: listing.model.name,
+      bodyType: listing.bodyType,
+      condition: listing.condition,
+      year: listing.year,
+      mileageKm: listing.mileageKm,
+      powerHp: listing.powerHp,
+      engineLiters:
+        listing.engineLiters === null ? null : Number(listing.engineLiters),
+      emissionStandard: listing.emissionStandard,
+      fuel: listing.fuel,
+      transmission: listing.transmission,
+      location: listing.location,
+      price: Number(listing.price),
+      currency: listing.currency,
+      features: this.toListingFeatures(listing).map(
+        ({ category, key, label }) => ({ category, key, label }),
+      ),
+    };
+  }
+
+  private validateRecommendationCandidateInput(
+    input: RecommendationCandidateInput,
+  ): void {
+    if (
+      (input.minPrice !== undefined && input.minPrice < 0) ||
+      (input.maxPrice !== undefined && input.maxPrice < 0) ||
+      (input.maxMileage !== undefined && input.maxMileage < 0) ||
+      (input.minYear !== undefined &&
+        (input.minYear < 1886 || input.minYear > 2100)) ||
+      (input.minPrice !== undefined &&
+        input.maxPrice !== undefined &&
+        input.minPrice > input.maxPrice)
+    ) {
+      throw new BadRequestException('Invalid recommendation criteria.');
+    }
   }
 
   private toListingImage(image: ImageEntity): ListingImage {
