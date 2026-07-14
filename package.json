@@ -37,6 +37,7 @@
     "ssl:generate": "cd secrets && echo SPAM SPACE FOR DEVELOPMENT && bash create.sh"
   },
   "dependencies": {
+    "@google/genai": "^2.11.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.0",
