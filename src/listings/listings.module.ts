@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AuthModule } from '../auth/auth.module';
 import { BrandEntity, VehicleModelEntity } from '../brands/entities';
+import { NotificationsModule } from '../notifications/notifications.module';
 import {
   ImageEntity,
   ListingEntity,
@@ -26,6 +27,7 @@ import { ListingsService } from './listings.service';
       ListingFeatureSelectionEntity,
     ]),
     AuthModule,
+    NotificationsModule,
   ],
   controllers: [ListingsController, ListingFeaturesController],
   providers: [

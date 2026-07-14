@@ -1,10 +1,12 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 
 import { BrandEntity, VehicleModelEntity } from '../brands/entities';
+import { NotificationsService } from '../notifications/notifications.service';
 import { UserEntity } from '../users/entities';
 import {
   ImageEntity,
@@ -62,9 +64,11 @@ describe('ListingsService', () => {
     };
     const brandsRepository = {
       exists: jest.fn(),
+      findOne: jest.fn(),
     };
     const modelsRepository = {
       exists: jest.fn(),
+      findOne: jest.fn(),
     };
     const imageStorageService = {
       save: jest.fn(),
@@ -73,6 +77,9 @@ describe('ListingsService', () => {
     const listingFeaturesService = {
       populateListingFeatures,
       syncListingFeatures: jest.fn(),
+    };
+    const notificationsService = {
+      createForListingChange: jest.fn(),
     };
 
     return {
@@ -84,6 +91,7 @@ describe('ListingsService', () => {
       populateListingFeatures,
       listingsRepository,
       modelsRepository,
+      notificationsService,
       queryBuilder,
       service: new ListingsService(
         listingsRepository as never,
@@ -93,6 +101,7 @@ describe('ListingsService', () => {
         imageStorageService as never,
         listingFeaturesService as unknown as ListingFeaturesService,
         dataSource as never,
+        notificationsService as unknown as NotificationsService,
       ),
     };
   }
@@ -349,6 +358,25 @@ describe('ListingsService', () => {
     expect(dataSource.transaction).toHaveBeenCalled();
   });
 
+  it('does not notify favorite users for an equivalent update', async () => {
+    const {
+      listingsRepository,
+      notificationsService,
+      queryBuilder,
+      service,
+    } = createService();
+    listingsRepository.findOne.mockResolvedValue(listingEntity());
+    queryBuilder.getOne.mockResolvedValue(listingEntity());
+
+    await service.update('listing-1', 'user-1', {
+      price: 18000,
+      engineLiters: 2,
+      featureKeys: ['abs'],
+    });
+
+    expect(notificationsService.createForListingChange).not.toHaveBeenCalled();
+  });
+
   it('lists pending listings for admin moderation by default', async () => {
     const { queryBuilder, service } = createService();
     const listing = listingEntity({ status: 'pending' });
@@ -434,6 +462,7 @@ describe('ListingsService', () => {
       listingFeaturesService,
       listingsRepository,
       modelsRepository,
+      notificationsService,
       queryBuilder,
       service,
     } = createService();
@@ -441,6 +470,7 @@ describe('ListingsService', () => {
     listingsRepository.findOne.mockResolvedValue(listingEntity());
     brandsRepository.exists.mockResolvedValue(true);
     modelsRepository.exists.mockResolvedValue(true);
+    modelsRepository.findOne.mockResolvedValue({ name: 'M3' });
     queryBuilder.getOne.mockResolvedValue(
       listingEntity({
         modelId: 'model-2',
@@ -480,6 +510,37 @@ describe('ListingsService', () => {
       expect.anything(),
     );
     expect(dataSource.transaction).toHaveBeenCalled();
+    expect(notificationsService.createForListingChange).toHaveBeenCalledWith(
+      {
+        changes: [
+          { field: 'model', oldValue: '320d', newValue: 'M3' },
+          {
+            field: 'title',
+            oldValue: 'BMW 320d',
+            newValue: 'Updated title',
+          },
+          { field: 'bodyType', oldValue: 'sedan', newValue: null },
+          { field: 'condition', oldValue: 'used', newValue: 'new' },
+          { field: 'engineLiters', oldValue: 2, newValue: 3 },
+          {
+            field: 'emissionStandard',
+            oldValue: 'euro_6d',
+            newValue: 'euro_6',
+          },
+          {
+            field: 'features',
+            oldValue: 'abs',
+            newValue: 'leather_interior',
+          },
+        ],
+        listingId: 'listing-1',
+        listingImageUrl: '/uploads/primary.webp',
+        listingOwnerId: 'user-1',
+        listingTitle: 'Updated title',
+        type: 'listing_changed',
+      },
+      expect.anything(),
+    );
   });
 
   it('returns a listing only when it belongs to the authenticated user', async () => {
@@ -553,6 +614,7 @@ describe('ListingsService', () => {
       imagesRepository,
       imageStorageService,
       listingsRepository,
+      notificationsService,
       queryBuilder,
       service,
     } = createService();
@@ -581,6 +643,104 @@ describe('ListingsService', () => {
         listingId: 'listing-1',
       }),
     );
+    expect(notificationsService.createForListingChange).toHaveBeenCalledWith({
+      changes: [{ field: 'photos', oldValue: null, newValue: '1' }],
+      listingId: 'listing-1',
+      listingImageUrl: '/uploads/car.webp',
+      listingOwnerId: 'user-1',
+      listingTitle: 'BMW 320d',
+      type: 'listing_photos_changed',
+    });
+  });
+
+  it('returns the uploaded listing when notification delivery fails', async () => {
+    const {
+      imagesRepository,
+      imageStorageService,
+      listingsRepository,
+      notificationsService,
+      queryBuilder,
+      service,
+    } = createService();
+    const file = {
+      mimetype: 'image/webp',
+      originalname: 'car.webp',
+      size: 1024,
+    } as Express.Multer.File;
+    const loggerSpy = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+
+    listingsRepository.findOne.mockResolvedValue(listingEntity());
+    imagesRepository.count.mockResolvedValue(0);
+    imageStorageService.save.mockResolvedValue('/uploads/car.webp');
+    notificationsService.createForListingChange.mockRejectedValue(
+      new Error('Notification storage unavailable.'),
+    );
+    queryBuilder.getOne.mockResolvedValue(listingEntity());
+
+    try {
+      await expect(
+        service.uploadImages('listing-1', 'user-1', [file], {}),
+      ).resolves.toMatchObject({ id: 'listing-1' });
+      expect(imagesRepository.save).toHaveBeenCalled();
+      expect(loggerSpy).toHaveBeenCalled();
+    } finally {
+      loggerSpy.mockRestore();
+    }
+  });
+
+  it('notifies favorite users when moderation hides a published listing', async () => {
+    const { listingsRepository, notificationsService, queryBuilder, service } =
+      createService();
+    listingsRepository.findOne.mockResolvedValue(listingEntity());
+    queryBuilder.getOne.mockResolvedValue(
+      listingEntity({ status: 'rejected' }),
+    );
+
+    await service.moderate('listing-1', 'admin-1', 'rejected');
+
+    expect(notificationsService.createForListingChange).toHaveBeenCalledWith(
+      {
+        changes: [
+          { field: 'status', oldValue: 'published', newValue: 'rejected' },
+        ],
+        includeListingOwner: true,
+        listingId: 'listing-1',
+        listingImageUrl: '/uploads/primary.webp',
+        listingOwnerId: 'user-1',
+        listingTitle: 'BMW 320d',
+        type: 'listing_unavailable',
+      },
+      expect.anything(),
+    );
+  });
+
+  it('creates a deletion snapshot before deleting the listing', async () => {
+    const {
+      listingsRepository,
+      notificationsService,
+      service,
+    } = createService();
+    listingsRepository.findOne.mockResolvedValue(listingEntity());
+
+    await service.remove('listing-1', 'user-1');
+
+    expect(notificationsService.createForListingChange).toHaveBeenCalledWith(
+      {
+        changes: [],
+        listingId: 'listing-1',
+        listingImageUrl: '/uploads/primary.webp',
+        listingOwnerId: 'user-1',
+        listingTitle: 'BMW 320d',
+        type: 'listing_deleted',
+      },
+      expect.anything(),
+    );
+    expect(listingsRepository.delete).toHaveBeenCalledWith('listing-1');
+    expect(
+      notificationsService.createForListingChange.mock.invocationCallOrder[0],
+    ).toBeLessThan(listingsRepository.delete.mock.invocationCallOrder[0]);
   });
 
   it('rejects unsupported image files', async () => {

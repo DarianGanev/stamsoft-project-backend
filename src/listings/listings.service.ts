@@ -2,12 +2,16 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, DataSource, Repository, SelectQueryBuilder } from 'typeorm';
 
 import { BrandEntity, VehicleModelEntity } from '../brands/entities';
+import { detectListingChanges } from '../notifications/listing-change-detector';
+import { NotificationsService } from '../notifications/notifications.service';
+import { ListingReferenceChangeValues } from '../notifications/types';
 import {
   CreateListingDto,
   ListListingsQueryDto,
@@ -34,6 +38,8 @@ import {
 
 @Injectable()
 export class ListingsService {
+  private readonly logger = new Logger(ListingsService.name);
+
   constructor(
     @InjectRepository(ListingEntity)
     private readonly listingsRepository: Repository<ListingEntity>,
@@ -46,6 +52,7 @@ export class ListingsService {
     private readonly imageStorageService: LocalImageStorageService,
     private readonly listingFeaturesService: ListingFeaturesService,
     private readonly dataSource: DataSource,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async list(query: ListListingsQueryDto) {
@@ -237,16 +244,42 @@ export class ListingsService {
     adminId: string,
     status: ListingModerationStatus,
   ): Promise<Listing> {
-    const listing = await this.listingsRepository.findOne({ where: { id } });
+    const listing = await this.listingsRepository.findOne({
+      relations: { images: true },
+      where: { id },
+    });
 
     if (!listing) {
       throw new NotFoundException('Listing not found.');
     }
 
-    await this.listingsRepository.update(id, {
-      moderatedAt: new Date(),
-      moderatedById: adminId,
-      status,
+    await this.dataSource.transaction(async (manager) => {
+      await manager.getRepository(ListingEntity).update(id, {
+        moderatedAt: new Date(),
+        moderatedById: adminId,
+        status,
+      });
+
+      if (listing.status === 'published' && status !== 'published') {
+        await this.notificationsService.createForListingChange(
+          {
+            listingId: listing.id,
+            listingOwnerId: listing.userId,
+            includeListingOwner: true,
+            listingTitle: listing.title,
+            listingImageUrl: this.getPrimaryImageUrl(listing),
+            type: 'listing_unavailable',
+            changes: [
+              {
+                field: 'status',
+                oldValue: listing.status,
+                newValue: status,
+              },
+            ],
+          },
+          manager,
+        );
+      }
     });
 
     return this.findAny(id);
@@ -324,10 +357,25 @@ export class ListingsService {
     const brandId = input.brandId ?? listing.brandId;
     const modelId = input.modelId ?? listing.modelId;
     const updates = this.buildListingUpdates(input);
+    const beforeFeatureKeys = (listing.featureSelections ?? [])
+      .filter((selection) => selection.feature)
+      .map((selection) => selection.feature.key);
+    let referenceValues: ListingReferenceChangeValues = {};
 
     if (input.brandId !== undefined || input.modelId !== undefined) {
       await this.validateBrandModelPair(brandId, modelId);
+      referenceValues = await this.resolveListingReferenceChangeValues(
+        listing,
+        input,
+      );
     }
+
+    const changes = detectListingChanges(
+      listing,
+      input,
+      beforeFeatureKeys,
+      referenceValues,
+    );
 
     await this.dataSource.transaction(async (manager) => {
       const listingsRepository = manager.getRepository(ListingEntity);
@@ -343,14 +391,42 @@ export class ListingsService {
           manager,
         );
       }
+
+      if (changes.length > 0) {
+        await this.notificationsService.createForListingChange(
+          {
+            listingId: listing.id,
+            listingOwnerId: listing.userId,
+            listingTitle: input.title ?? listing.title,
+            listingImageUrl: this.getPrimaryImageUrl(listing),
+            type: 'listing_changed',
+            changes,
+          },
+          manager,
+        );
+      }
     });
 
     return this.findMine(id, userId);
   }
 
   async remove(id: string, userId: string): Promise<void> {
-    await this.ensureOwner(id, userId);
-    await this.listingsRepository.delete(id);
+    const listing = await this.ensureOwner(id, userId);
+
+    await this.dataSource.transaction(async (manager) => {
+      await this.notificationsService.createForListingChange(
+        {
+          listingId: listing.id,
+          listingOwnerId: listing.userId,
+          listingTitle: listing.title,
+          listingImageUrl: this.getPrimaryImageUrl(listing),
+          type: 'listing_deleted',
+          changes: [],
+        },
+        manager,
+      );
+      await manager.getRepository(ListingEntity).delete(id);
+    });
   }
 
   async uploadImages(
@@ -359,7 +435,7 @@ export class ListingsService {
     files: Express.Multer.File[],
     options: UploadListingImagesDto,
   ): Promise<Listing> {
-    await this.ensureOwner(listingId, userId);
+    const listing = await this.ensureOwner(listingId, userId);
     this.validateFiles(files);
 
     const existingCount = await this.imagesRepository.count({
@@ -379,8 +455,11 @@ export class ListingsService {
       await this.imagesRepository.update({ listingId }, { isPrimary: false });
     }
 
+    const uploadedImageUrls: string[] = [];
+
     for (const [index, file] of files.entries()) {
       const imageUrl = await this.imageStorageService.save(file);
+      uploadedImageUrls.push(imageUrl);
 
       await this.imagesRepository.save(
         this.imagesRepository.create({
@@ -390,6 +469,26 @@ export class ListingsService {
           sortOrder: existingCount + index,
           isPrimary: shouldSetPrimary && index === 0,
         }),
+      );
+    }
+
+    try {
+      await this.notificationsService.createForListingChange({
+        listingId: listing.id,
+        listingOwnerId: listing.userId,
+        listingTitle: listing.title,
+        listingImageUrl: shouldSetPrimary
+          ? uploadedImageUrls[0]
+          : this.getPrimaryImageUrl(listing),
+        type: 'listing_photos_changed',
+        changes: [
+          { field: 'photos', oldValue: null, newValue: String(files.length) },
+        ],
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to create photo-change notification for listing ${listing.id}.`,
+        error instanceof Error ? error.stack : undefined,
       );
     }
 
@@ -439,7 +538,15 @@ export class ListingsService {
     id: string,
     userId: string,
   ): Promise<ListingEntity> {
-    const listing = await this.listingsRepository.findOne({ where: { id } });
+    const listing = await this.listingsRepository.findOne({
+      relations: {
+        brand: true,
+        featureSelections: { feature: true },
+        images: true,
+        model: true,
+      },
+      where: { id },
+    });
 
     if (!listing) {
       throw new NotFoundException('Listing not found.');
@@ -470,6 +577,52 @@ export class ListingsService {
         'Selected model does not exist for the selected brand.',
       );
     }
+  }
+
+  private async resolveListingReferenceChangeValues(
+    listing: ListingEntity,
+    input: UpdateListingDto,
+  ): Promise<ListingReferenceChangeValues> {
+    const values: ListingReferenceChangeValues = {};
+
+    if (input.brandId !== undefined && input.brandId !== listing.brandId) {
+      const brand = await this.brandsRepository.findOne({
+        select: { name: true },
+        where: { id: input.brandId },
+      });
+
+      if (!brand) {
+        throw new BadRequestException('Selected brand does not exist.');
+      }
+
+      values.brand = {
+        oldValue: listing.brand.name,
+        newValue: brand.name,
+      };
+    }
+
+    if (input.modelId !== undefined && input.modelId !== listing.modelId) {
+      const model = await this.modelsRepository.findOne({
+        select: { name: true },
+        where: {
+          brandId: input.brandId ?? listing.brandId,
+          id: input.modelId,
+        },
+      });
+
+      if (!model) {
+        throw new BadRequestException(
+          'Selected model does not exist for the selected brand.',
+        );
+      }
+
+      values.model = {
+        oldValue: listing.model.name,
+        newValue: model.name,
+      };
+    }
+
+    return values;
   }
 
   private createListingQuery(): SelectQueryBuilder<ListingEntity> {
@@ -663,6 +816,10 @@ export class ListingsService {
 
       return first.createdAt.getTime() - second.createdAt.getTime();
     });
+  }
+
+  private getPrimaryImageUrl(listing: ListingEntity): string | null {
+    return this.sortImages(listing.images ?? [])[0]?.imageUrl ?? null;
   }
 
   private validateFiles(files: Express.Multer.File[]) {
