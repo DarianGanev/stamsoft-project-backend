@@ -56,6 +56,7 @@ export class SellersService {
       .createQueryBuilder('listing')
       .innerJoinAndSelect('listing.brand', 'brand')
       .innerJoinAndSelect('listing.model', 'model')
+      .innerJoinAndSelect('listing.user', 'user')
       .leftJoinAndSelect('listing.images', 'image')
       .where('listing.userId = :userId', { userId })
       .andWhere('listing.status = :status', { status: 'published' })
@@ -66,9 +67,7 @@ export class SellersService {
     const [listings, total] = await queryBuilder.getManyAndCount();
 
     return {
-      data: listings.map((listing) =>
-        this.listingsService.toListingResponse(listing),
-      ),
+      data: await this.listingsService.toListingResponses(listings),
       meta: {
         page,
         limit,

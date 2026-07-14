@@ -27,10 +27,14 @@ describe('SellersService', () => {
       findOne: jest.fn(),
     };
     const listingsService = {
-      toListingResponse: jest.fn((listing: ListingEntity) => ({
-        id: listing.id,
-        status: listing.status,
-      })),
+      toListingResponses: jest.fn((listings: ListingEntity[]) =>
+        Promise.resolve(
+          listings.map((listing) => ({
+            id: listing.id,
+            status: listing.status,
+          })),
+        ),
+      ),
     };
 
     return {
@@ -123,6 +127,10 @@ describe('SellersService', () => {
     expect(queryBuilder.andWhere).toHaveBeenCalledWith(
       'listing.status = :status',
       { status: 'published' },
+    );
+    expect(queryBuilder.innerJoinAndSelect).toHaveBeenCalledWith(
+      'listing.user',
+      'user',
     );
     expect(queryBuilder.skip).toHaveBeenCalledWith(6);
     expect(queryBuilder.take).toHaveBeenCalledWith(6);
