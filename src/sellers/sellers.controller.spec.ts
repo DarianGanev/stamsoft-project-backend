@@ -1,3 +1,7 @@
+import { INestApplication } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import type { Server } from 'node:http';
+
 import { SellersController } from './sellers.controller';
 import { SellersService } from './sellers.service';
 
@@ -50,5 +54,37 @@ describe('SellersController', () => {
       'seller-1',
       query,
     );
+  });
+
+  it('returns 400 for an invalid seller UUID', async () => {
+    const sellersService = {
+      findPublicSeller: jest.fn(),
+      listPublishedListings: jest.fn(),
+    };
+    const moduleRef = await Test.createTestingModule({
+      controllers: [SellersController],
+      providers: [{ provide: SellersService, useValue: sellersService }],
+    }).compile();
+    const app: INestApplication = moduleRef.createNestApplication();
+
+    await app.listen(0, '127.0.0.1');
+
+    try {
+      const server = app.getHttpServer() as unknown as Server;
+      const address = server.address();
+
+      if (!address || typeof address === 'string') {
+        throw new Error('Test server did not bind to a TCP port.');
+      }
+
+      const response = await fetch(
+        `http://127.0.0.1:${address.port}/sellers/not-a-uuid`,
+      );
+
+      expect(response.status).toBe(400);
+      expect(sellersService.findPublicSeller).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
   });
 });

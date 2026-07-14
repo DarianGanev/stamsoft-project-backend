@@ -1,7 +1,9 @@
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
-export class ListSellerListingsQueryDto {
+import type { SellerListingsQueryInput } from '../types/seller.types';
+
+export class ListSellerListingsQueryDto implements SellerListingsQueryInput {
   @IsOptional()
   @Type(() => Number)
   @IsInt()

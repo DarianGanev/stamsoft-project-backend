@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Not, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 
+import { PUBLISHED_LISTING_STATUS } from '../listings/constants';
 import { ListingEntity } from '../listings/entities';
 import { ListingsService } from '../listings/listings.service';
 import { UserEntity } from '../users/entities';
-import { ListSellerListingsQueryDto } from './dto';
-import { PublicSeller, SellerListingsResponse } from './types';
+import { ListSellerListingsQueryDto } from './dto/list-seller-listings-query.dto';
+import type {
+  PublicSeller,
+  SellerListingsResponse,
+} from './types/seller.types';
 
 @Injectable()
 export class SellersService {
@@ -29,16 +33,19 @@ export class SellersService {
       order: { createdAt: 'DESC' },
       select: { contactPhone: true, id: true },
       where: {
-        contactPhone: Not(IsNull()),
-        status: 'published',
+        status: PUBLISHED_LISTING_STATUS,
         userId,
       },
     });
 
+    if (!contactListing) {
+      throw new NotFoundException('Seller not found.');
+    }
+
     return {
       id: user.id,
       name: user.name,
-      phone: contactListing?.contactPhone ?? null,
+      phone: contactListing.contactPhone,
       createdAt: user.createdAt.toISOString(),
     };
   }
@@ -59,7 +66,9 @@ export class SellersService {
       .innerJoinAndSelect('listing.user', 'user')
       .leftJoinAndSelect('listing.images', 'image')
       .where('listing.userId = :userId', { userId })
-      .andWhere('listing.status = :status', { status: 'published' })
+      .andWhere('listing.status = :status', {
+        status: PUBLISHED_LISTING_STATUS,
+      })
       .orderBy('listing.createdAt', 'DESC')
       .skip(offset)
       .take(limit);
@@ -77,7 +86,9 @@ export class SellersService {
   }
 
   private async ensureSellerExists(userId: string): Promise<void> {
-    const exists = await this.usersRepository.exists({ where: { id: userId } });
+    const exists = await this.listingsRepository.exists({
+      where: { status: PUBLISHED_LISTING_STATUS, userId },
+    });
 
     if (!exists) {
       throw new NotFoundException('Seller not found.');

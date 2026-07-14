@@ -7,6 +7,11 @@ export interface PublicSeller {
   createdAt: string;
 }
 
+export interface SellerListingsQueryInput {
+  page?: number;
+  limit?: number;
+}
+
 export interface SellerListingsResponse {
   data: Listing[];
   meta: {

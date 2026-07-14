@@ -19,11 +19,11 @@ class MockSellerListingsQueryBuilder {
 describe('SellersService', () => {
   function createService(queryBuilder = new MockSellerListingsQueryBuilder()) {
     const usersRepository = {
-      exists: jest.fn(),
       findOne: jest.fn(),
     };
     const listingsRepository = {
       createQueryBuilder: jest.fn(() => queryBuilder),
+      exists: jest.fn(),
       findOne: jest.fn(),
     };
     const listingsService = {
@@ -80,18 +80,37 @@ describe('SellersService', () => {
       phone: '+359888123456',
       createdAt: '2026-07-08T08:00:00.000Z',
     });
+    expect(listingsRepository.findOne).toHaveBeenCalledWith({
+      order: { createdAt: 'DESC' },
+      select: { contactPhone: true, id: true },
+      where: { status: 'published', userId: 'seller-1' },
+    });
   });
 
   it('returns null phone when seller has no public listing phone', async () => {
     const { listingsRepository, service, usersRepository } = createService();
 
     usersRepository.findOne.mockResolvedValue(userEntity());
-    listingsRepository.findOne.mockResolvedValue(null);
+    listingsRepository.findOne.mockResolvedValue({
+      id: 'listing-1',
+      contactPhone: null,
+    });
 
     await expect(service.findPublicSeller('seller-1')).resolves.toMatchObject({
       id: 'seller-1',
       phone: null,
     });
+  });
+
+  it('rejects users without published listings', async () => {
+    const { listingsRepository, service, usersRepository } = createService();
+
+    usersRepository.findOne.mockResolvedValue(userEntity());
+    listingsRepository.findOne.mockResolvedValue(null);
+
+    await expect(service.findPublicSeller('seller-1')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('rejects missing sellers', async () => {
@@ -105,9 +124,9 @@ describe('SellersService', () => {
   });
 
   it('lists only published listings for the seller', async () => {
-    const { queryBuilder, service, usersRepository } = createService();
+    const { listingsRepository, queryBuilder, service } = createService();
 
-    usersRepository.exists.mockResolvedValue(true);
+    listingsRepository.exists.mockResolvedValue(true);
     queryBuilder.getManyAndCount.mockResolvedValue([
       [{ id: 'listing-1', status: 'published' }],
       1,
@@ -137,9 +156,9 @@ describe('SellersService', () => {
   });
 
   it('rejects listing requests for missing sellers', async () => {
-    const { service, usersRepository } = createService();
+    const { listingsRepository, service } = createService();
 
-    usersRepository.exists.mockResolvedValue(false);
+    listingsRepository.exists.mockResolvedValue(false);
 
     await expect(
       service.listPublishedListings('seller-1', { page: 1, limit: 6 }),

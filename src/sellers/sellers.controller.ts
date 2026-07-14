@@ -1,6 +1,6 @@
 import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 
-import { ListSellerListingsQueryDto } from './dto';
+import { ListSellerListingsQueryDto } from './dto/list-seller-listings-query.dto';
 import { SellersService } from './sellers.service';
 
 @Controller('sellers')

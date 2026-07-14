@@ -52,6 +52,7 @@ export const LISTING_STATUSES: readonly ListingStatus[] = [
 ] as const;
 
 export const DEFAULT_LISTING_STATUS: ListingStatus = 'pending';
+export const PUBLISHED_LISTING_STATUS: ListingStatus = 'published';
 
 export const LISTING_MODERATION_STATUSES: readonly ListingModerationStatus[] = [
   'published',
