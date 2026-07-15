@@ -140,6 +140,35 @@ describe('GeminiRecommendationService', () => {
     expect(request?.config?.responseMimeType).toBe('application/json');
   });
 
+  it('ignores null criteria when Gemini has no value to extract', async () => {
+    const { service } = createService();
+    generateContent.mockResolvedValue({
+      text: JSON.stringify({
+        clarificationQuestion: null,
+        criteria: {
+          bodyTypes: null,
+          budgetCurrency: null,
+          fuels: null,
+          location: null,
+          maxMileage: null,
+          maxPrice: null,
+          minPrice: null,
+          minYear: null,
+          transmissions: null,
+        },
+        needsClarification: false,
+        preferences: [],
+      }),
+    });
+
+    await expect(service.analyzeNeeds([])).resolves.toEqual({
+      clarificationQuestion: null,
+      criteria: {},
+      needsClarification: false,
+      preferences: [],
+    });
+  });
+
   it('does not initialize the SDK without an API key', async () => {
     const { service } = createService({ GEMINI_API_KEY: undefined });
 

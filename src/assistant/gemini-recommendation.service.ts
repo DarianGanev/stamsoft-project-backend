@@ -129,26 +129,44 @@ export class GeminiRecommendationService implements RecommendationModel {
     this.assignOptionalNumber(criteria, criteriaRecord, 'minPrice');
     this.assignOptionalNumber(criteria, criteriaRecord, 'minYear');
 
-    if (criteriaRecord.budgetCurrency !== undefined) {
+    if (
+      criteriaRecord.budgetCurrency !== undefined &&
+      criteriaRecord.budgetCurrency !== null
+    ) {
       criteria.budgetCurrency = this.asEnumValue(
         criteriaRecord.budgetCurrency,
         CURRENCIES,
       );
     }
 
-    if (criteriaRecord.location !== undefined) {
+    if (
+      criteriaRecord.location !== undefined &&
+      criteriaRecord.location !== null
+    ) {
       criteria.location = this.asNonEmptyString(criteriaRecord.location);
     }
 
-    criteria.bodyTypes = this.asOptionalEnumArray(
+    const bodyTypes = this.asOptionalEnumArray(
       criteriaRecord.bodyTypes,
       BODY_TYPES,
     );
-    criteria.fuels = this.asOptionalEnumArray(criteriaRecord.fuels, FUEL_TYPES);
-    criteria.transmissions = this.asOptionalEnumArray(
+    const fuels = this.asOptionalEnumArray(criteriaRecord.fuels, FUEL_TYPES);
+    const transmissions = this.asOptionalEnumArray(
       criteriaRecord.transmissions,
       TRANSMISSION_TYPES,
     );
+
+    if (bodyTypes !== undefined) {
+      criteria.bodyTypes = bodyTypes;
+    }
+
+    if (fuels !== undefined) {
+      criteria.fuels = fuels;
+    }
+
+    if (transmissions !== undefined) {
+      criteria.transmissions = transmissions;
+    }
 
     if (
       criteria.minYear !== undefined &&
@@ -236,7 +254,7 @@ export class GeminiRecommendationService implements RecommendationModel {
   ): void {
     const value = source[key];
 
-    if (value === undefined) {
+    if (value === undefined || value === null) {
       return;
     }
 
@@ -253,7 +271,7 @@ export class GeminiRecommendationService implements RecommendationModel {
     value: unknown,
     allowedValues: readonly T[],
   ): T[] | undefined {
-    if (value === undefined) {
+    if (value === undefined || value === null) {
       return undefined;
     }
 
