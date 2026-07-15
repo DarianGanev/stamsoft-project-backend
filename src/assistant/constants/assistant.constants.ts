@@ -9,13 +9,24 @@ export const MAX_ASSISTANT_MESSAGE_LENGTH = 1_000;
 export const MAX_ASSISTANT_PREFERENCES = 10;
 export const MAX_ASSISTANT_RECOMMENDATIONS = 3;
 export const MAX_ASSISTANT_TRADEOFFS = 3;
-export const DEGRADED_RECOMMENDATIONS_MESSAGE =
-  'Намерих подходящи обяви, но временно не мога да ги сравня подробно.';
-export const NO_MATCHING_LISTINGS_MESSAGE =
-  'В момента няма публикувани обяви, които отговарят на тези изисквания.';
 export const REDACTED_EMAIL_PLACEHOLDER = '[email removed]';
 export const REDACTED_PHONE_PLACEHOLDER = '[phone removed]';
 export const ASSISTANT_EMAIL_PATTERN =
   /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 export const ASSISTANT_PHONE_PATTERN = /\+?\d[\d\s().-]{6,}\d/g;
+export const ASSISTANT_RESPONSE_MESSAGES = {
+  bg: {
+    degraded:
+      'Намерих подходящи обяви, но временно не мога да ги сравня подробно.',
+    noMatchingListings:
+      'В момента няма публикувани обяви, които отговарят на тези изисквания. Опитайте да разширите един или повече от критериите.',
+  },
+  en: {
+    degraded:
+      'I found suitable listings, but I cannot compare them in detail right now.',
+    noMatchingListings:
+      'No published listings currently match these requirements. Try relaxing one or more filters.',
+  },
+} as const;
+export const BULGARIAN_TEXT_PATTERN = /[А-Яа-я]/;
 export const RECOMMENDATION_MODEL = Symbol('RECOMMENDATION_MODEL');

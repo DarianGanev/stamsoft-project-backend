@@ -2,10 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 
 import type { RecommendationCandidate } from '../listings/types';
 import { AssistantService } from './assistant.service';
-import {
-  DEGRADED_RECOMMENDATIONS_MESSAGE,
-  NO_MATCHING_LISTINGS_MESSAGE,
-} from './constants';
+import { ASSISTANT_RESPONSE_MESSAGES } from './constants';
 import type { VehicleNeedsAnalysis } from './types';
 
 describe('AssistantService', () => {
@@ -99,11 +96,25 @@ describe('AssistantService', () => {
     await expect(
       service.recommend({ message: 'Искам SUV до 20 000 EUR.' }),
     ).resolves.toEqual({
-      message: NO_MATCHING_LISTINGS_MESSAGE,
+      message: ASSISTANT_RESPONSE_MESSAGES.bg.noMatchingListings,
       recommendations: [],
       status: 'completed',
     });
     expect(recommendationModel.rankCandidates).not.toHaveBeenCalled();
+  });
+
+  it('uses English for deterministic responses to English messages', async () => {
+    const { listingsService, recommendationModel, service } = createService();
+    recommendationModel.analyzeNeeds.mockResolvedValue(needs);
+    listingsService.findRecommendationCandidates.mockResolvedValue([]);
+
+    await expect(
+      service.recommend({ message: 'I need a family SUV under 20,000 EUR.' }),
+    ).resolves.toEqual({
+      message: ASSISTANT_RESPONSE_MESSAGES.en.noMatchingListings,
+      recommendations: [],
+      status: 'completed',
+    });
   });
 
   it('returns unique database-backed recommendations and valid highlights', async () => {
@@ -217,7 +228,7 @@ describe('AssistantService', () => {
     await expect(
       service.recommend({ message: 'Искам семеен SUV.' }),
     ).resolves.toEqual({
-      message: DEGRADED_RECOMMENDATIONS_MESSAGE,
+      message: ASSISTANT_RESPONSE_MESSAGES.bg.degraded,
       recommendations: [
         {
           highlights: [],

@@ -9,13 +9,13 @@ import { ListingsService } from '../listings/listings.service';
 import {
   ASSISTANT_EMAIL_PATTERN,
   ASSISTANT_PHONE_PATTERN,
-  DEGRADED_RECOMMENDATIONS_MESSAGE,
+  ASSISTANT_RESPONSE_MESSAGES,
+  BULGARIAN_TEXT_PATTERN,
   MAX_ASSISTANT_CLARIFICATION_QUESTIONS,
   MAX_ASSISTANT_HIGHLIGHTS,
   MAX_ASSISTANT_HISTORY_MESSAGES,
   MAX_ASSISTANT_MESSAGE_LENGTH,
   MAX_ASSISTANT_RECOMMENDATIONS,
-  NO_MATCHING_LISTINGS_MESSAGE,
   REDACTED_EMAIL_PLACEHOLDER,
   REDACTED_PHONE_PLACEHOLDER,
   RECOMMENDATION_MODEL,
@@ -77,7 +77,7 @@ export class AssistantService {
 
     if (!candidates.length) {
       return {
-        message: NO_MATCHING_LISTINGS_MESSAGE,
+        message: this.getResponseMessages(conversation).noMatchingListings,
         recommendations: [],
         status: 'completed',
       };
@@ -99,7 +99,7 @@ export class AssistantService {
         needs: resolvedNeeds,
       });
     } catch {
-      return this.createDegradedResult(candidates);
+      return this.createDegradedResult(candidates, conversation);
     }
 
     const candidatesById = new Map(
@@ -134,7 +134,7 @@ export class AssistantService {
     }
 
     if (!recommendations.length) {
-      return this.createDegradedResult(candidates);
+      return this.createDegradedResult(candidates, conversation);
     }
 
     return {
@@ -173,9 +173,10 @@ export class AssistantService {
 
   private createDegradedResult(
     candidates: readonly VehicleRecommendation['listing'][],
+    conversation: readonly AssistantMessage[],
   ): VehicleRecommendationResult {
     return {
-      message: DEGRADED_RECOMMENDATIONS_MESSAGE,
+      message: this.getResponseMessages(conversation).degraded,
       recommendations: candidates
         .slice(0, MAX_ASSISTANT_RECOMMENDATIONS)
         .map((listing) => ({
@@ -186,6 +187,14 @@ export class AssistantService {
         })),
       status: 'degraded',
     };
+  }
+
+  private getResponseMessages(conversation: readonly AssistantMessage[]) {
+    const latestMessage = conversation[conversation.length - 1]?.content ?? '';
+
+    return ASSISTANT_RESPONSE_MESSAGES[
+      BULGARIAN_TEXT_PATTERN.test(latestMessage) ? 'bg' : 'en'
+    ];
   }
 
   private redactSensitiveContent(content: string): string {
