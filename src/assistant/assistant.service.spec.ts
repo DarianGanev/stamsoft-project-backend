@@ -1,4 +1,7 @@
-import { BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 
 import type { RecommendationCandidate } from '../listings/types';
 import { AssistantService } from './assistant.service';
@@ -257,6 +260,72 @@ describe('AssistantService', () => {
     ).resolves.toMatchObject({
       recommendations: [{ listing: firstCandidate, reason: null }],
       status: 'degraded',
+    });
+  });
+
+  it('uses local filtering when Gemini quota is unavailable', async () => {
+    const { listingsService, recommendationModel, service } = createService();
+    const firstCandidate = candidate('listing-1', { price: 19500 });
+    recommendationModel.analyzeNeeds.mockRejectedValue(
+      new ServiceUnavailableException('Gemini quota exceeded'),
+    );
+    listingsService.findRecommendationCandidates.mockResolvedValue([
+      firstCandidate,
+    ]);
+    recommendationModel.rankCandidates.mockRejectedValue(
+      new ServiceUnavailableException('Gemini quota exceeded'),
+    );
+
+    await expect(
+      service.recommend({ message: 'Best family SUV under 34k euro' }),
+    ).resolves.toMatchObject({
+      recommendations: [{ listing: firstCandidate }],
+      status: 'degraded',
+    });
+    expect(listingsService.findRecommendationCandidates).toHaveBeenCalledWith({
+      bodyTypes: ['suv'],
+      budgetCurrency: 'EUR',
+      maxPrice: 34000,
+    });
+  });
+
+  it('asks for a budget when Gemini and the local input lack one', async () => {
+    const { listingsService, recommendationModel, service } = createService();
+    recommendationModel.analyzeNeeds.mockRejectedValue(
+      new ServiceUnavailableException('Gemini quota exceeded'),
+    );
+
+    await expect(
+      service.recommend({ message: 'I need a practical family car.' }),
+    ).resolves.toEqual({
+      message: ASSISTANT_RESPONSE_MESSAGES.en.budgetQuestion,
+      recommendations: [],
+      status: 'clarifying',
+    });
+    expect(listingsService.findRecommendationCandidates).not.toHaveBeenCalled();
+  });
+
+  it('extracts a short budget reply when Gemini is unavailable', async () => {
+    const { listingsService, recommendationModel, service } = createService();
+    recommendationModel.analyzeNeeds.mockRejectedValue(
+      new ServiceUnavailableException('Gemini quota exceeded'),
+    );
+    listingsService.findRecommendationCandidates.mockResolvedValue([]);
+
+    await service.recommend({
+      history: [
+        { role: 'user', content: 'We are a family of 6.' },
+        {
+          role: 'assistant',
+          content: 'What is your budget and preferred currency?',
+        },
+      ],
+      message: '100000 in eur',
+    });
+
+    expect(listingsService.findRecommendationCandidates).toHaveBeenCalledWith({
+      budgetCurrency: 'EUR',
+      maxPrice: 100000,
     });
   });
 

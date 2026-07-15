@@ -191,31 +191,65 @@ describe('GeminiRecommendationService', () => {
     );
   });
 
-  it('rejects invalid enum values and inconsistent clarification output', async () => {
+  it('rejects invalid enum values', async () => {
     const { service } = createService();
-    generateContent
-      .mockResolvedValueOnce({
-        text: JSON.stringify({
-          clarificationQuestion: null,
-          criteria: { bodyTypes: ['spaceship'] },
-          needsClarification: false,
-          preferences: [],
-        }),
-      })
-      .mockResolvedValueOnce({
-        text: JSON.stringify({
-          clarificationQuestion: null,
-          criteria: {},
-          needsClarification: true,
-          preferences: [],
-        }),
-      });
+    generateContent.mockResolvedValue({
+      text: JSON.stringify({
+        clarificationQuestion: null,
+        criteria: { bodyTypes: ['spaceship'] },
+        needsClarification: false,
+        preferences: [],
+      }),
+    });
 
     await expect(service.analyzeNeeds([])).rejects.toThrow(
       ServiceUnavailableException,
     );
-    await expect(service.analyzeNeeds([])).rejects.toThrow(
-      ServiceUnavailableException,
+  });
+
+  it('continues when Gemini requests clarification without a question', async () => {
+    const { service } = createService();
+    generateContent.mockResolvedValue({
+      text: JSON.stringify({
+        clarificationQuestion: null,
+        criteria: {
+          budgetCurrency: 'EUR',
+          maxPrice: 100000,
+        },
+        needsClarification: true,
+        preferences: ['family of 6', 'mountain driving'],
+      }),
+    });
+
+    await expect(service.analyzeNeeds([])).resolves.toEqual({
+      clarificationQuestion: null,
+      criteria: {
+        budgetCurrency: 'EUR',
+        maxPrice: 100000,
+      },
+      needsClarification: false,
+      preferences: ['family of 6', 'mountain driving'],
+    });
+  });
+
+  it('instructs Gemini to keep terrain separate from listing location', async () => {
+    const { service } = createService();
+    generateContent.mockResolvedValue({
+      text: JSON.stringify({
+        clarificationQuestion: null,
+        criteria: {},
+        needsClarification: false,
+        preferences: ['mountain driving'],
+      }),
+    });
+
+    await service.analyzeNeeds([
+      { role: 'user', content: 'We live in the mountains.' },
+    ]);
+
+    const request = generateContent.mock.calls[0]?.[0];
+    expect(request?.config?.systemInstruction).toContain(
+      'Treat terrain descriptions such as mountains',
     );
   });
 

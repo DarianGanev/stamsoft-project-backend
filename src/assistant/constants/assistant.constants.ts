@@ -34,12 +34,14 @@ export const ASSISTANT_EMAIL_PATTERN =
 export const ASSISTANT_PHONE_PATTERN = /\+?\d[\d\s().-]{6,}\d/g;
 export const ASSISTANT_RESPONSE_MESSAGES = {
   bg: {
+    budgetQuestion: 'Какъв е максималният ви бюджет и в каква валута?',
     degraded:
       'Намерих подходящи обяви, но временно не мога да ги сравня подробно.',
     noMatchingListings:
       'В момента няма публикувани обяви, които отговарят на тези изисквания. Опитайте да разширите един или повече от критериите.',
   },
   en: {
+    budgetQuestion: 'What is your maximum budget and preferred currency?',
     degraded:
       'I found suitable listings, but I cannot compare them in detail right now.',
     noMatchingListings:
