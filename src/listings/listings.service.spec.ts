@@ -19,6 +19,7 @@ import { ListingsService } from './listings.service';
 
 class MockListingQueryBuilder {
   andWhere = jest.fn(() => this);
+  getMany = jest.fn();
   getManyAndCount = jest.fn();
   getOne = jest.fn();
   innerJoinAndSelect = jest.fn(() => this);
@@ -259,6 +260,145 @@ describe('ListingsService', () => {
     expect(populateListingFeatures).toHaveBeenCalledWith([listing]);
   });
 
+  it('returns compact published recommendation candidates with combined filters', async () => {
+    const { populateListingFeatures, queryBuilder, service } = createService();
+    const listing = listingEntity();
+
+    queryBuilder.getMany.mockResolvedValue([listing]);
+
+    const result = await service.findRecommendationCandidates({
+      bodyTypes: ['sedan', 'sedan'],
+      fuels: ['diesel', 'hybrid'],
+      location: ' Sofia ',
+      maxMileage: 150000,
+      maxPrice: 20000,
+      minPrice: 10000,
+      minYear: 2018,
+      transmissions: ['automatic'],
+    });
+
+    expect(result).toEqual([
+      {
+        id: 'listing-1',
+        title: 'BMW 320d',
+        brandName: 'BMW',
+        modelName: '320d',
+        bodyType: 'sedan',
+        condition: 'used',
+        year: 2020,
+        mileageKm: 120000,
+        powerHp: 190,
+        engineLiters: 2,
+        emissionStandard: 'euro_6d',
+        fuel: 'diesel',
+        transmission: 'automatic',
+        location: 'Sofia',
+        price: 18000,
+        currency: 'EUR',
+        features: [
+          {
+            category: 'safety',
+            key: 'abs',
+            label: 'Антиблокираща система',
+          },
+        ],
+      },
+    ]);
+    expect(result[0]).not.toHaveProperty('contactEmail');
+    expect(result[0]).not.toHaveProperty('contactPhone');
+    expect(result[0]).not.toHaveProperty('sellerName');
+    expect(result[0]).not.toHaveProperty('userId');
+    expect(queryBuilder.where).toHaveBeenCalledWith(
+      'listing.status = :status',
+      { status: 'published' },
+    );
+    expect(queryBuilder.innerJoinAndSelect).toHaveBeenCalledWith(
+      'listing.brand',
+      'brand',
+    );
+    expect(queryBuilder.innerJoinAndSelect).toHaveBeenCalledWith(
+      'listing.model',
+      'model',
+    );
+    expect(queryBuilder.innerJoinAndSelect).not.toHaveBeenCalledWith(
+      'listing.user',
+      'user',
+    );
+    expect(queryBuilder.leftJoinAndSelect).not.toHaveBeenCalled();
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'listing.price >= :minPrice',
+      { minPrice: 10000 },
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'listing.price <= :maxPrice',
+      { maxPrice: 20000 },
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'listing.year >= :minYear',
+      { minYear: 2018 },
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'listing.mileageKm <= :maxMileage',
+      { maxMileage: 150000 },
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'listing.location ILIKE :location',
+      { location: '%Sofia%' },
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'listing.fuel IN (:...fuels)',
+      { fuels: ['diesel', 'hybrid'] },
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'listing.transmission IN (:...transmissions)',
+      { transmissions: ['automatic'] },
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'listing.bodyType IN (:...bodyTypes)',
+      { bodyTypes: ['sedan'] },
+    );
+    expect(queryBuilder.orderBy).toHaveBeenCalledWith(
+      'listing.createdAt',
+      'DESC',
+    );
+    expect(queryBuilder.take).toHaveBeenCalledWith(25);
+    expect(populateListingFeatures).toHaveBeenCalledWith([listing]);
+  });
+
+  it('ignores empty optional recommendation filters', async () => {
+    const { populateListingFeatures, queryBuilder, service } = createService();
+
+    queryBuilder.getMany.mockResolvedValue([]);
+
+    await expect(
+      service.findRecommendationCandidates({
+        bodyTypes: [],
+        fuels: [],
+        location: '   ',
+        transmissions: [],
+      }),
+    ).resolves.toEqual([]);
+
+    expect(queryBuilder.andWhere).not.toHaveBeenCalled();
+    expect(populateListingFeatures).toHaveBeenCalledWith([]);
+  });
+
+  it.each([
+    { minPrice: -1 },
+    { maxPrice: -1 },
+    { maxMileage: -1 },
+    { minYear: 1885 },
+    { minYear: 2101 },
+    { minPrice: 20000, maxPrice: 10000 },
+  ])('rejects invalid recommendation criteria: %p', async (input) => {
+    const { listingsRepository, service } = createService();
+
+    await expect(service.findRecommendationCandidates(input)).rejects.toThrow(
+      new BadRequestException('Invalid recommendation criteria.'),
+    );
+    expect(listingsRepository.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
   it('lists only listings owned by the authenticated user', async () => {
     const { queryBuilder, service } = createService();
     const listing = listingEntity({ status: 'draft' });
@@ -359,12 +499,8 @@ describe('ListingsService', () => {
   });
 
   it('does not notify favorite users for an equivalent update', async () => {
-    const {
-      listingsRepository,
-      notificationsService,
-      queryBuilder,
-      service,
-    } = createService();
+    const { listingsRepository, notificationsService, queryBuilder, service } =
+      createService();
     listingsRepository.findOne.mockResolvedValue(listingEntity());
     queryBuilder.getOne.mockResolvedValue(listingEntity());
 
@@ -549,7 +685,9 @@ describe('ListingsService', () => {
 
     queryBuilder.getOne.mockResolvedValue(listing);
 
-    await expect(service.findMine('listing-1', 'user-1')).resolves.toMatchObject({
+    await expect(
+      service.findMine('listing-1', 'user-1'),
+    ).resolves.toMatchObject({
       bodyType: 'sedan',
       condition: 'used',
       features: [
@@ -717,11 +855,8 @@ describe('ListingsService', () => {
   });
 
   it('creates a deletion snapshot before deleting the listing', async () => {
-    const {
-      listingsRepository,
-      notificationsService,
-      service,
-    } = createService();
+    const { listingsRepository, notificationsService, service } =
+      createService();
     listingsRepository.findOne.mockResolvedValue(listingEntity());
 
     await service.remove('listing-1', 'user-1');

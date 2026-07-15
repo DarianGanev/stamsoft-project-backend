@@ -23,3 +23,4 @@ export {
   MAX_IMAGES_PER_LISTING,
   MAX_IMAGES_PER_UPLOAD,
 } from './listing-upload.constants';
+export { RECOMMENDATION_CANDIDATE_LIMIT } from './listing-recommendation.constants';

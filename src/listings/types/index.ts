@@ -20,3 +20,7 @@ export type {
   ListingFeatureCategory,
   ListingFeatureOption,
 } from './listing-feature.types';
+export type {
+  RecommendationCandidate,
+  RecommendationCandidateInput,
+} from './listing-recommendation.types';
