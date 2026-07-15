@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Not, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 
 import { PUBLISHED_LISTING_STATUS } from '../listings/constants';
 import { ListingEntity } from '../listings/entities';
@@ -24,7 +24,7 @@ export class SellersService {
 
   async findPublicSeller(userId: string): Promise<PublicSeller> {
     const user = await this.usersRepository.findOne({
-      select: { createdAt: true, id: true, name: true },
+      select: { createdAt: true, id: true, name: true, phone: true },
       where: { id: userId },
     });
 
@@ -32,36 +32,12 @@ export class SellersService {
       throw new NotFoundException('Seller not found.');
     }
 
-    const latestListing = await this.listingsRepository.findOne({
-      order: { createdAt: 'DESC' },
-      select: { contactPhone: true, id: true },
-      where: {
-        status: PUBLISHED_LISTING_STATUS,
-        userId,
-      },
-    });
-
-    if (!latestListing) {
-      throw new NotFoundException('Seller not found.');
-    }
-
-    const listingWithPhone =
-      latestListing.contactPhone === null
-        ? await this.listingsRepository.findOne({
-            order: { createdAt: 'DESC' },
-            select: { contactPhone: true, id: true },
-            where: {
-              contactPhone: Not(IsNull()),
-              status: PUBLISHED_LISTING_STATUS,
-              userId,
-            },
-          })
-        : latestListing;
+    await this.ensureSellerExists(userId);
 
     return {
       id: user.id,
       name: user.name,
-      phone: listingWithPhone?.contactPhone ?? null,
+      phone: user.phone,
       createdAt: user.createdAt.toISOString(),
     };
   }

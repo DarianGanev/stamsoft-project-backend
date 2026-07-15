@@ -69,53 +69,42 @@ describe('SellersService', () => {
     const { listingsRepository, service, usersRepository } = createService();
 
     usersRepository.findOne.mockResolvedValue(userEntity());
-    listingsRepository.findOne.mockResolvedValue({
-      id: 'listing-1',
-      contactPhone: '+359888123456',
-    });
+    listingsRepository.exists.mockResolvedValue(true);
 
     await expect(service.findPublicSeller('seller-1')).resolves.toEqual({
       id: 'seller-1',
       name: 'Seller',
-      phone: '+359888123456',
+      phone: '+359888000000',
       createdAt: '2026-07-08T08:00:00.000Z',
     });
     expect(usersRepository.findOne).toHaveBeenCalledWith({
-      select: { createdAt: true, id: true, name: true },
+      select: { createdAt: true, id: true, name: true, phone: true },
       where: { id: 'seller-1' },
     });
-    expect(listingsRepository.findOne).toHaveBeenCalledWith({
-      order: { createdAt: 'DESC' },
-      select: { contactPhone: true, id: true },
+    expect(listingsRepository.exists).toHaveBeenCalledWith({
       where: { status: 'published', userId: 'seller-1' },
     });
   });
 
-  it('uses the newest non-null phone from published listings', async () => {
+  it('reflects the seller current profile phone, not any listing snapshot', async () => {
     const { listingsRepository, service, usersRepository } = createService();
 
-    usersRepository.findOne.mockResolvedValue(userEntity());
-    listingsRepository.findOne
-      .mockResolvedValueOnce({ id: 'listing-1', contactPhone: null })
-      .mockResolvedValueOnce({
-        id: 'listing-2',
-        contactPhone: '+359888999999',
-      });
+    usersRepository.findOne.mockResolvedValue(
+      userEntity({ phone: '+359888999999' }),
+    );
+    listingsRepository.exists.mockResolvedValue(true);
 
     await expect(service.findPublicSeller('seller-1')).resolves.toMatchObject({
       id: 'seller-1',
       phone: '+359888999999',
     });
-    expect(listingsRepository.findOne).toHaveBeenCalledTimes(2);
   });
 
-  it('returns null when no published listing has a phone', async () => {
+  it('returns null when the seller has no phone on their profile', async () => {
     const { listingsRepository, service, usersRepository } = createService();
 
-    usersRepository.findOne.mockResolvedValue(userEntity());
-    listingsRepository.findOne
-      .mockResolvedValueOnce({ id: 'listing-1', contactPhone: null })
-      .mockResolvedValueOnce(null);
+    usersRepository.findOne.mockResolvedValue(userEntity({ phone: null }));
+    listingsRepository.exists.mockResolvedValue(true);
 
     await expect(service.findPublicSeller('seller-1')).resolves.toMatchObject({
       id: 'seller-1',
@@ -127,7 +116,7 @@ describe('SellersService', () => {
     const { listingsRepository, service, usersRepository } = createService();
 
     usersRepository.findOne.mockResolvedValue(userEntity());
-    listingsRepository.findOne.mockResolvedValue(null);
+    listingsRepository.exists.mockResolvedValue(false);
 
     await expect(service.findPublicSeller('seller-1')).rejects.toThrow(
       NotFoundException,
