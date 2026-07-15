@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { type GenerateContentParameters, GoogleGenAI } from '@google/genai';
 import { ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -12,9 +12,9 @@ import { GeminiRecommendationService } from './gemini-recommendation.service';
 jest.mock('@google/genai');
 
 describe('GeminiRecommendationService', () => {
-  const createInteraction = jest.fn<
-    Promise<{ output_text?: string }>,
-    [Record<string, unknown>, Record<string, unknown>]
+  const generateContent = jest.fn<
+    Promise<{ text?: string }>,
+    [GenerateContentParameters]
   >();
   const GoogleGenAIMock = jest.mocked(GoogleGenAI);
 
@@ -31,7 +31,7 @@ describe('GeminiRecommendationService', () => {
     GoogleGenAIMock.mockImplementation(
       () =>
         ({
-          interactions: { create: createInteraction },
+          models: { generateContent },
         }) as never,
     );
 
@@ -49,8 +49,8 @@ describe('GeminiRecommendationService', () => {
 
   it('extracts validated search criteria with structured output', async () => {
     const { service } = createService();
-    createInteraction.mockResolvedValue({
-      output_text: JSON.stringify({
+    generateContent.mockResolvedValue({
+      text: JSON.stringify({
         clarificationQuestion: null,
         criteria: {
           bodyTypes: ['suv'],
@@ -83,24 +83,22 @@ describe('GeminiRecommendationService', () => {
       preferences: ['family use', 'winter driving'],
     });
     expect(GoogleGenAIMock).toHaveBeenCalledWith({ apiKey: 'test-api-key' });
-    expect(createInteraction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        model: 'gemini-test-model',
-        response_format: {
-          type: 'text',
-          mime_type: 'application/json',
-          schema: VEHICLE_NEEDS_RESPONSE_SCHEMA,
-        },
-        store: false,
-      }),
-      { timeout_ms: DEFAULT_GEMINI_REQUEST_TIMEOUT_MS },
+    const request = generateContent.mock.calls[0]?.[0];
+    expect(request?.model).toBe('gemini-test-model');
+    expect(typeof request?.contents).toBe('string');
+    expect(request?.config?.httpOptions?.timeout).toBe(
+      DEFAULT_GEMINI_REQUEST_TIMEOUT_MS,
     );
+    expect(request?.config?.responseJsonSchema).toBe(
+      VEHICLE_NEEDS_RESPONSE_SCHEMA,
+    );
+    expect(request?.config?.responseMimeType).toBe('application/json');
   });
 
   it('parses a structured candidate ranking', async () => {
     const { service } = createService();
-    createInteraction.mockResolvedValue({
-      output_text: JSON.stringify({
+    generateContent.mockResolvedValue({
+      text: JSON.stringify({
         recommendations: [
           {
             highlights: ['Система ISOFIX'],
@@ -135,16 +133,11 @@ describe('GeminiRecommendationService', () => {
       ],
       summary: 'Най-добрият баланс за нуждите ви.',
     });
-    expect(createInteraction).toHaveBeenCalledWith(
-      expect.objectContaining({
-        response_format: {
-          type: 'text',
-          mime_type: 'application/json',
-          schema: CANDIDATE_RANKING_RESPONSE_SCHEMA,
-        },
-      }),
-      expect.any(Object),
+    const request = generateContent.mock.calls[0]?.[0];
+    expect(request?.config?.responseJsonSchema).toBe(
+      CANDIDATE_RANKING_RESPONSE_SCHEMA,
     );
+    expect(request?.config?.responseMimeType).toBe('application/json');
   });
 
   it('does not initialize the SDK without an API key', async () => {
@@ -160,7 +153,7 @@ describe('GeminiRecommendationService', () => {
 
   it('rejects malformed JSON returned by Gemini', async () => {
     const { service } = createService();
-    createInteraction.mockResolvedValue({ output_text: 'not-json' });
+    generateContent.mockResolvedValue({ text: 'not-json' });
 
     await expect(service.analyzeNeeds([])).rejects.toThrow(
       new ServiceUnavailableException(
@@ -171,9 +164,9 @@ describe('GeminiRecommendationService', () => {
 
   it('rejects invalid enum values and inconsistent clarification output', async () => {
     const { service } = createService();
-    createInteraction
+    generateContent
       .mockResolvedValueOnce({
-        output_text: JSON.stringify({
+        text: JSON.stringify({
           clarificationQuestion: null,
           criteria: { bodyTypes: ['spaceship'] },
           needsClarification: false,
@@ -181,7 +174,7 @@ describe('GeminiRecommendationService', () => {
         }),
       })
       .mockResolvedValueOnce({
-        output_text: JSON.stringify({
+        text: JSON.stringify({
           clarificationQuestion: null,
           criteria: {},
           needsClarification: true,
@@ -199,8 +192,8 @@ describe('GeminiRecommendationService', () => {
 
   it('uses a valid configured request timeout', async () => {
     const { service } = createService({ GEMINI_TIMEOUT_MS: '5000' });
-    createInteraction.mockResolvedValue({
-      output_text: JSON.stringify({
+    generateContent.mockResolvedValue({
+      text: JSON.stringify({
         clarificationQuestion: null,
         criteria: {},
         needsClarification: false,
@@ -210,14 +203,13 @@ describe('GeminiRecommendationService', () => {
 
     await service.analyzeNeeds([]);
 
-    expect(createInteraction).toHaveBeenCalledWith(expect.any(Object), {
-      timeout_ms: 5000,
-    });
+    const request = generateContent.mock.calls[0]?.[0];
+    expect(request?.config?.httpOptions?.timeout).toBe(5000);
   });
 
   it('translates SDK failures into a stable service error', async () => {
     const { service } = createService();
-    createInteraction.mockRejectedValue(new Error('quota exceeded'));
+    generateContent.mockRejectedValue(new Error('quota exceeded'));
 
     await expect(service.analyzeNeeds([])).rejects.toThrow(
       new ServiceUnavailableException(

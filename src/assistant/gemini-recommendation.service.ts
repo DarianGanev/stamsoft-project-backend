@@ -86,30 +86,26 @@ export class GeminiRecommendationService implements RecommendationModel {
 
     try {
       const client = new GoogleGenAI({ apiKey });
-      const interaction = await client.interactions.create(
-        {
-          model,
-          input,
-          system_instruction: systemInstruction,
-          response_format: {
-            type: 'text',
-            mime_type: 'application/json',
-            schema,
+      const response = await client.models.generateContent({
+        model,
+        contents: input,
+        config: {
+          systemInstruction,
+          responseMimeType: 'application/json',
+          responseJsonSchema: schema,
+          maxOutputTokens: 1_500,
+          temperature: 0.2,
+          httpOptions: {
+            timeout: timeoutMs,
           },
-          generation_config: {
-            max_output_tokens: 1_500,
-            temperature: 0.2,
-          },
-          store: false,
         },
-        { timeout_ms: timeoutMs },
-      );
+      });
 
-      if (!interaction.output_text) {
+      if (!response.text) {
         throw new TypeError('Gemini returned an empty response.');
       }
 
-      return JSON.parse(interaction.output_text) as unknown;
+      return JSON.parse(response.text) as unknown;
     } catch (error) {
       if (error instanceof ServiceUnavailableException) {
         throw error;
