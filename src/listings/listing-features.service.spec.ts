@@ -83,12 +83,31 @@ describe('ListingFeaturesService', () => {
   it('caches grouped listing features in memory', async () => {
     const { featuresRepository, service } = createService();
 
-    featuresRepository.find.mockResolvedValue([]);
+    featuresRepository.find.mockResolvedValue([
+      featureEntity({ id: 'feature-1', key: 'abs' }),
+    ]);
 
     await service.listGrouped();
     await service.listGrouped();
 
     expect(featuresRepository.find).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not cache empty reference data', async () => {
+    const { featuresRepository, service } = createService();
+
+    featuresRepository.find
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([featureEntity({ id: 'feature-1', key: 'abs' })]);
+
+    const firstResult = await service.listGrouped();
+    const secondResult = await service.listGrouped();
+
+    expect(featuresRepository.find).toHaveBeenCalledTimes(2);
+    expect(firstResult.every((group) => group.features.length === 0)).toBe(true);
+    expect(
+      secondResult.some((group) => group.features.length > 0),
+    ).toBe(true);
   });
 
   it('syncs selected listing features', async () => {

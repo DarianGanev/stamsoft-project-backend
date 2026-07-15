@@ -34,7 +34,7 @@ export class ListingFeaturesService {
       order: { sortOrder: 'ASC' },
     });
 
-    this.groupedFeaturesCache = LISTING_FEATURE_CATEGORIES.map((category) => ({
+    const groupedFeatures = LISTING_FEATURE_CATEGORIES.map((category) => ({
       category,
       label: LISTING_FEATURE_CATEGORY_LABELS[category],
       features: features
@@ -48,7 +48,11 @@ export class ListingFeaturesService {
         })),
     }));
 
-    return this.groupedFeaturesCache;
+    if (features.length > 0) {
+      this.groupedFeaturesCache = groupedFeatures;
+    }
+
+    return groupedFeatures;
   }
 
   async syncListingFeatures(
