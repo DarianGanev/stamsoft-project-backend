@@ -1,3 +1,21 @@
+import type { AssistantMessageRole } from '../types';
+
+export const ASSISTANT_MESSAGE_ROLES = [
+  'assistant',
+  'user',
+] as const satisfies readonly AssistantMessageRole[];
+export const ASSISTANT_THROTTLER_OPTIONS = [
+  {
+    name: 'assistant-minute',
+    limit: 5,
+    ttl: 60_000,
+  },
+  {
+    name: 'assistant-day',
+    limit: 50,
+    ttl: 86_400_000,
+  },
+] as const;
 export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash-lite';
 export const DEFAULT_GEMINI_REQUEST_TIMEOUT_MS = 15_000;
 export const MAX_GEMINI_REQUEST_TIMEOUT_MS = 30_000;
