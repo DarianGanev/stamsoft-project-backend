@@ -23,4 +23,9 @@ export {
   MAX_IMAGES_PER_LISTING,
   MAX_IMAGES_PER_UPLOAD,
 } from './listing-upload.constants';
-export { RECOMMENDATION_CANDIDATE_LIMIT } from './listing-recommendation.constants';
+export {
+  BGN_PER_EUR,
+  DEFAULT_RECOMMENDATION_BUDGET_CURRENCY,
+  RECOMMENDATION_CANDIDATE_LIMIT,
+  RECOMMENDATION_PRICE_EUR_EXPRESSION,
+} from './listing-recommendation.constants';

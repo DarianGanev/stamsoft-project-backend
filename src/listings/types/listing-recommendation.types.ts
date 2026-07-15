@@ -10,6 +10,7 @@ import type {
 
 export interface RecommendationCandidateInput {
   bodyTypes?: readonly BodyType[];
+  budgetCurrency?: Currency;
   fuels?: readonly FuelType[];
   location?: string;
   maxMileage?: number;

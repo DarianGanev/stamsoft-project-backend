@@ -268,11 +268,12 @@ describe('ListingsService', () => {
 
     const result = await service.findRecommendationCandidates({
       bodyTypes: ['sedan', 'sedan'],
+      budgetCurrency: 'BGN',
       fuels: ['diesel', 'hybrid'],
       location: ' Sofia ',
       maxMileage: 150000,
-      maxPrice: 20000,
-      minPrice: 10000,
+      maxPrice: 39116.6,
+      minPrice: 19558.3,
       minYear: 2018,
       transmissions: ['automatic'],
     });
@@ -326,12 +327,12 @@ describe('ListingsService', () => {
     );
     expect(queryBuilder.leftJoinAndSelect).not.toHaveBeenCalled();
     expect(queryBuilder.andWhere).toHaveBeenCalledWith(
-      'listing.price >= :minPrice',
-      { minPrice: 10000 },
+      "CASE WHEN listing.currency = 'BGN' THEN listing.price / 1.95583 ELSE listing.price END >= :minPriceEur",
+      { minPriceEur: 10000 },
     );
     expect(queryBuilder.andWhere).toHaveBeenCalledWith(
-      'listing.price <= :maxPrice',
-      { maxPrice: 20000 },
+      "CASE WHEN listing.currency = 'BGN' THEN listing.price / 1.95583 ELSE listing.price END <= :maxPriceEur",
+      { maxPriceEur: 20000 },
     );
     expect(queryBuilder.andWhere).toHaveBeenCalledWith(
       'listing.year >= :minYear',
@@ -389,7 +390,10 @@ describe('ListingsService', () => {
     { maxMileage: -1 },
     { minYear: 1885 },
     { minYear: 2101 },
+    { minYear: 2020.5 },
     { minPrice: 20000, maxPrice: 10000 },
+    { minPrice: Number.NaN },
+    { budgetCurrency: 'USD' as never },
   ])('rejects invalid recommendation criteria: %p', async (input) => {
     const { listingsRepository, service } = createService();
 
