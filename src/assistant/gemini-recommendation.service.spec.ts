@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 
 import {
   CANDIDATE_RANKING_RESPONSE_SCHEMA,
-  GEMINI_REQUEST_TIMEOUT_MS,
+  DEFAULT_GEMINI_REQUEST_TIMEOUT_MS,
   VEHICLE_NEEDS_RESPONSE_SCHEMA,
 } from './constants';
 import { GeminiRecommendationService } from './gemini-recommendation.service';
@@ -54,6 +54,7 @@ describe('GeminiRecommendationService', () => {
         clarificationQuestion: null,
         criteria: {
           bodyTypes: ['suv'],
+          budgetCurrency: 'EUR',
           fuels: ['hybrid'],
           maxPrice: 20000,
           minYear: 2018,
@@ -72,6 +73,7 @@ describe('GeminiRecommendationService', () => {
       clarificationQuestion: null,
       criteria: {
         bodyTypes: ['suv'],
+        budgetCurrency: 'EUR',
         fuels: ['hybrid'],
         maxPrice: 20000,
         minYear: 2018,
@@ -91,7 +93,7 @@ describe('GeminiRecommendationService', () => {
         },
         store: false,
       }),
-      { timeout_ms: GEMINI_REQUEST_TIMEOUT_MS },
+      { timeout_ms: DEFAULT_GEMINI_REQUEST_TIMEOUT_MS },
     );
   });
 
@@ -101,9 +103,10 @@ describe('GeminiRecommendationService', () => {
       output_text: JSON.stringify({
         recommendations: [
           {
+            highlights: ['Система ISOFIX'],
             listingId: 'listing-1',
             reason: 'Подходящ за семейство.',
-            tradeOffs: ['По-висок разход.'],
+            tradeoffs: ['По-висок разход.'],
           },
         ],
         summary: 'Най-добрият баланс за нуждите ви.',
@@ -124,9 +127,10 @@ describe('GeminiRecommendationService', () => {
     ).resolves.toEqual({
       recommendations: [
         {
+          highlights: ['Система ISOFIX'],
           listingId: 'listing-1',
           reason: 'Подходящ за семейство.',
-          tradeOffs: ['По-висок разход.'],
+          tradeoffs: ['По-висок разход.'],
         },
       ],
       summary: 'Най-добрият баланс за нуждите ви.',
@@ -191,6 +195,24 @@ describe('GeminiRecommendationService', () => {
     await expect(service.analyzeNeeds([])).rejects.toThrow(
       ServiceUnavailableException,
     );
+  });
+
+  it('uses a valid configured request timeout', async () => {
+    const { service } = createService({ GEMINI_TIMEOUT_MS: '5000' });
+    createInteraction.mockResolvedValue({
+      output_text: JSON.stringify({
+        clarificationQuestion: null,
+        criteria: {},
+        needsClarification: false,
+        preferences: [],
+      }),
+    });
+
+    await service.analyzeNeeds([]);
+
+    expect(createInteraction).toHaveBeenCalledWith(expect.any(Object), {
+      timeout_ms: 5000,
+    });
   });
 
   it('translates SDK failures into a stable service error', async () => {

@@ -9,4 +9,5 @@ export type {
   VehicleRecommendation,
   VehicleRecommendationInput,
   VehicleRecommendationResult,
+  VehicleRecommendationStatus,
 } from './assistant.types';

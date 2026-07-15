@@ -1,9 +1,15 @@
 import {
   BODY_TYPES,
+  CURRENCIES,
   FUEL_TYPES,
   TRANSMISSION_TYPES,
 } from '../../listings/constants';
-import { MAX_ASSISTANT_RECOMMENDATIONS } from './assistant.constants';
+import {
+  MAX_ASSISTANT_HIGHLIGHTS,
+  MAX_ASSISTANT_PREFERENCES,
+  MAX_ASSISTANT_RECOMMENDATIONS,
+  MAX_ASSISTANT_TRADEOFFS,
+} from './assistant.constants';
 
 export const VEHICLE_NEEDS_RESPONSE_SCHEMA = {
   type: 'object',
@@ -19,6 +25,7 @@ export const VEHICLE_NEEDS_RESPONSE_SCHEMA = {
           items: { type: 'string', enum: BODY_TYPES },
           uniqueItems: true,
         },
+        budgetCurrency: { type: 'string', enum: CURRENCIES },
         fuels: {
           type: 'array',
           items: { type: 'string', enum: FUEL_TYPES },
@@ -40,7 +47,7 @@ export const VEHICLE_NEEDS_RESPONSE_SCHEMA = {
     preferences: {
       type: 'array',
       items: { type: 'string' },
-      maxItems: 10,
+      maxItems: MAX_ASSISTANT_PREFERENCES,
     },
   },
   required: [
@@ -63,14 +70,19 @@ export const CANDIDATE_RANKING_RESPONSE_SCHEMA = {
         additionalProperties: false,
         properties: {
           listingId: { type: 'string' },
-          reason: { type: 'string' },
-          tradeOffs: {
+          highlights: {
             type: 'array',
             items: { type: 'string' },
-            maxItems: 3,
+            maxItems: MAX_ASSISTANT_HIGHLIGHTS,
+          },
+          reason: { type: 'string' },
+          tradeoffs: {
+            type: 'array',
+            items: { type: 'string' },
+            maxItems: MAX_ASSISTANT_TRADEOFFS,
           },
         },
-        required: ['listingId', 'reason', 'tradeOffs'],
+        required: ['highlights', 'listingId', 'reason', 'tradeoffs'],
       },
     },
     summary: { type: 'string' },

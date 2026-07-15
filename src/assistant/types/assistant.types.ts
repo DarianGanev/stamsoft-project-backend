@@ -4,6 +4,8 @@ import type {
 } from '../../listings/types';
 
 export type AssistantMessageRole = 'assistant' | 'user';
+export type VehicleRecommendationStatus =
+  'clarifying' | 'completed' | 'degraded';
 
 export interface AssistantMessage {
   content: string;
@@ -23,9 +25,10 @@ export interface VehicleNeedsAnalysis {
 }
 
 export interface CandidateRanking {
+  highlights: string[];
   listingId: string;
   reason: string;
-  tradeOffs: string[];
+  tradeoffs: string[];
 }
 
 export interface CandidateRankingResult {
@@ -47,13 +50,14 @@ export interface RecommendationModel {
 }
 
 export interface VehicleRecommendation {
+  highlights: string[];
   listing: RecommendationCandidate;
-  reason: string;
-  tradeOffs: string[];
+  reason: string | null;
+  tradeoffs: string[];
 }
 
 export interface VehicleRecommendationResult {
   message: string;
-  needsClarification: boolean;
   recommendations: VehicleRecommendation[];
+  status: VehicleRecommendationStatus;
 }

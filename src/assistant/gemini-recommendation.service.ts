@@ -1,18 +1,28 @@
 import { GoogleGenAI } from '@google/genai';
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import {
   BODY_TYPES,
+  CURRENCIES,
   FUEL_TYPES,
   TRANSMISSION_TYPES,
 } from '../listings/constants';
 import type { RecommendationCandidateInput } from '../listings/types';
 import {
   CANDIDATE_RANKING_RESPONSE_SCHEMA,
+  DEFAULT_GEMINI_REQUEST_TIMEOUT_MS,
   DEFAULT_GEMINI_MODEL,
-  GEMINI_REQUEST_TIMEOUT_MS,
+  MAX_ASSISTANT_HIGHLIGHTS,
+  MAX_ASSISTANT_PREFERENCES,
   MAX_ASSISTANT_RECOMMENDATIONS,
+  MAX_ASSISTANT_TRADEOFFS,
+  MAX_GEMINI_REQUEST_TIMEOUT_MS,
+  MIN_GEMINI_REQUEST_TIMEOUT_MS,
   VEHICLE_NEEDS_RESPONSE_SCHEMA,
   VEHICLE_NEEDS_SYSTEM_INSTRUCTION,
   VEHICLE_RANKING_SYSTEM_INSTRUCTION,
@@ -28,6 +38,8 @@ import type {
 
 @Injectable()
 export class GeminiRecommendationService implements RecommendationModel {
+  private readonly logger = new Logger(GeminiRecommendationService.name);
+
   constructor(private readonly configService: ConfigService) {}
 
   async analyzeNeeds(
@@ -70,6 +82,7 @@ export class GeminiRecommendationService implements RecommendationModel {
     const model =
       this.configService.get<string>('GEMINI_MODEL')?.trim() ||
       DEFAULT_GEMINI_MODEL;
+    const timeoutMs = this.getRequestTimeoutMs();
 
     try {
       const client = new GoogleGenAI({ apiKey });
@@ -89,7 +102,7 @@ export class GeminiRecommendationService implements RecommendationModel {
           },
           store: false,
         },
-        { timeout_ms: GEMINI_REQUEST_TIMEOUT_MS },
+        { timeout_ms: timeoutMs },
       );
 
       if (!interaction.output_text) {
@@ -101,6 +114,8 @@ export class GeminiRecommendationService implements RecommendationModel {
       if (error instanceof ServiceUnavailableException) {
         throw error;
       }
+
+      this.logGeminiFailure(error);
 
       throw new ServiceUnavailableException(
         'AI recommendation service is temporarily unavailable.',
@@ -117,6 +132,13 @@ export class GeminiRecommendationService implements RecommendationModel {
     this.assignOptionalNumber(criteria, criteriaRecord, 'maxPrice');
     this.assignOptionalNumber(criteria, criteriaRecord, 'minPrice');
     this.assignOptionalNumber(criteria, criteriaRecord, 'minYear');
+
+    if (criteriaRecord.budgetCurrency !== undefined) {
+      criteria.budgetCurrency = this.asEnumValue(
+        criteriaRecord.budgetCurrency,
+        CURRENCIES,
+      );
+    }
 
     if (criteriaRecord.location !== undefined) {
       criteria.location = this.asNonEmptyString(criteriaRecord.location);
@@ -169,7 +191,10 @@ export class GeminiRecommendationService implements RecommendationModel {
       clarificationQuestion,
       criteria,
       needsClarification,
-      preferences: this.asStringArray(record.preferences, 10),
+      preferences: this.asStringArray(
+        record.preferences,
+        MAX_ASSISTANT_PREFERENCES,
+      ),
     };
   }
 
@@ -189,9 +214,16 @@ export class GeminiRecommendationService implements RecommendationModel {
         const recommendation = this.asRecord(item);
 
         return {
+          highlights: this.asStringArray(
+            recommendation.highlights,
+            MAX_ASSISTANT_HIGHLIGHTS,
+          ),
           listingId: this.asNonEmptyString(recommendation.listingId),
           reason: this.asNonEmptyString(recommendation.reason),
-          tradeOffs: this.asStringArray(recommendation.tradeOffs, 3),
+          tradeoffs: this.asStringArray(
+            recommendation.tradeoffs,
+            MAX_ASSISTANT_TRADEOFFS,
+          ),
         };
       });
 
@@ -244,6 +276,19 @@ export class GeminiRecommendationService implements RecommendationModel {
     return [...new Set(value)];
   }
 
+  private asEnumValue<T extends string>(
+    value: unknown,
+    allowedValues: readonly T[],
+  ): T {
+    if (typeof value !== 'string' || !allowedValues.includes(value as T)) {
+      throw new ServiceUnavailableException(
+        'AI recommendation service returned an invalid response.',
+      );
+    }
+
+    return value as T;
+  }
+
   private asRecord(value: unknown): Record<string, unknown> {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
       throw new ServiceUnavailableException(
@@ -281,6 +326,34 @@ export class GeminiRecommendationService implements RecommendationModel {
       );
     }
 
-    return value.map((item) => this.asNonEmptyString(item));
+    return [...new Set(value.map((item) => this.asNonEmptyString(item)))];
+  }
+
+  private getRequestTimeoutMs(): number {
+    const configuredTimeout = Number(
+      this.configService.get<string | number>('GEMINI_TIMEOUT_MS'),
+    );
+
+    if (
+      Number.isInteger(configuredTimeout) &&
+      configuredTimeout >= MIN_GEMINI_REQUEST_TIMEOUT_MS &&
+      configuredTimeout <= MAX_GEMINI_REQUEST_TIMEOUT_MS
+    ) {
+      return configuredTimeout;
+    }
+
+    return DEFAULT_GEMINI_REQUEST_TIMEOUT_MS;
+  }
+
+  private logGeminiFailure(error: unknown): void {
+    const status =
+      typeof error === 'object' &&
+      error !== null &&
+      'status' in error &&
+      (typeof error.status === 'number' || typeof error.status === 'string')
+        ? ` (status ${error.status})`
+        : '';
+
+    this.logger.warn(`Gemini request failed${status}.`);
   }
 }

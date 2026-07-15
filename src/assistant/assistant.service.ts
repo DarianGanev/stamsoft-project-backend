@@ -7,14 +7,22 @@ import {
 
 import { ListingsService } from '../listings/listings.service';
 import {
+  ASSISTANT_EMAIL_PATTERN,
+  ASSISTANT_PHONE_PATTERN,
+  DEGRADED_RECOMMENDATIONS_MESSAGE,
+  MAX_ASSISTANT_CLARIFICATION_QUESTIONS,
+  MAX_ASSISTANT_HIGHLIGHTS,
   MAX_ASSISTANT_HISTORY_MESSAGES,
   MAX_ASSISTANT_MESSAGE_LENGTH,
   MAX_ASSISTANT_RECOMMENDATIONS,
   NO_MATCHING_LISTINGS_MESSAGE,
+  REDACTED_EMAIL_PLACEHOLDER,
+  REDACTED_PHONE_PLACEHOLDER,
   RECOMMENDATION_MODEL,
 } from './constants';
 import type {
   AssistantMessage,
+  CandidateRankingResult,
   RecommendationModel,
   VehicleRecommendation,
   VehicleRecommendationInput,
@@ -34,8 +42,14 @@ export class AssistantService {
   ): Promise<VehicleRecommendationResult> {
     const conversation = this.normalizeConversation(input);
     const needs = await this.recommendationModel.analyzeNeeds(conversation);
+    const clarificationCount = conversation.filter(
+      (message) => message.role === 'assistant',
+    ).length;
 
-    if (needs.needsClarification) {
+    if (
+      needs.needsClarification &&
+      clarificationCount < MAX_ASSISTANT_CLARIFICATION_QUESTIONS
+    ) {
       if (!needs.clarificationQuestion) {
         throw new ServiceUnavailableException(
           'AI recommendation service returned no clarification question.',
@@ -44,28 +58,50 @@ export class AssistantService {
 
       return {
         message: needs.clarificationQuestion,
-        needsClarification: true,
         recommendations: [],
+        status: 'clarifying',
       };
     }
 
+    const resolvedNeeds = needs.needsClarification
+      ? {
+          ...needs,
+          clarificationQuestion: null,
+          needsClarification: false,
+        }
+      : needs;
+
     const candidates = await this.listingsService.findRecommendationCandidates(
-      needs.criteria,
+      resolvedNeeds.criteria,
     );
 
     if (!candidates.length) {
       return {
         message: NO_MATCHING_LISTINGS_MESSAGE,
-        needsClarification: false,
         recommendations: [],
+        status: 'completed',
       };
     }
 
-    const ranking = await this.recommendationModel.rankCandidates({
-      candidates,
-      conversation,
-      needs,
-    });
+    let ranking: CandidateRankingResult;
+
+    try {
+      ranking = await this.recommendationModel.rankCandidates({
+        candidates: candidates.map((candidate) => ({
+          ...candidate,
+          location:
+            candidate.location === null
+              ? null
+              : this.redactSensitiveContent(candidate.location),
+          title: this.redactSensitiveContent(candidate.title),
+        })),
+        conversation,
+        needs: resolvedNeeds,
+      });
+    } catch {
+      return this.createDegradedResult(candidates);
+    }
+
     const candidatesById = new Map(
       candidates.map((candidate) => [candidate.id, candidate]),
     );
@@ -79,11 +115,17 @@ export class AssistantService {
         continue;
       }
 
+      const featureLabels = new Set(
+        listing.features.map((feature) => feature.label),
+      );
       seenIds.add(listing.id);
       recommendations.push({
+        highlights: recommendation.highlights
+          .filter((highlight) => featureLabels.has(highlight))
+          .slice(0, MAX_ASSISTANT_HIGHLIGHTS),
         listing,
         reason: recommendation.reason,
-        tradeOffs: recommendation.tradeOffs,
+        tradeoffs: recommendation.tradeoffs,
       });
 
       if (recommendations.length === MAX_ASSISTANT_RECOMMENDATIONS) {
@@ -92,15 +134,13 @@ export class AssistantService {
     }
 
     if (!recommendations.length) {
-      throw new ServiceUnavailableException(
-        'AI recommendation service returned no valid listings.',
-      );
+      return this.createDegradedResult(candidates);
     }
 
     return {
       message: ranking.summary,
-      needsClarification: false,
       recommendations,
+      status: 'completed',
     };
   }
 
@@ -119,10 +159,38 @@ export class AssistantService {
       .slice(-MAX_ASSISTANT_HISTORY_MESSAGES)
       .map((item) => ({
         role: item.role,
-        content: item.content.trim().slice(0, MAX_ASSISTANT_MESSAGE_LENGTH),
+        content: this.redactSensitiveContent(
+          item.content.trim().slice(0, MAX_ASSISTANT_MESSAGE_LENGTH),
+        ),
       }))
       .filter((item) => item.content.length > 0);
 
-    return [...history, { role: 'user', content: message }];
+    return [
+      ...history,
+      { role: 'user', content: this.redactSensitiveContent(message) },
+    ];
+  }
+
+  private createDegradedResult(
+    candidates: readonly VehicleRecommendation['listing'][],
+  ): VehicleRecommendationResult {
+    return {
+      message: DEGRADED_RECOMMENDATIONS_MESSAGE,
+      recommendations: candidates
+        .slice(0, MAX_ASSISTANT_RECOMMENDATIONS)
+        .map((listing) => ({
+          highlights: [],
+          listing,
+          reason: null,
+          tradeoffs: [],
+        })),
+      status: 'degraded',
+    };
+  }
+
+  private redactSensitiveContent(content: string): string {
+    return content
+      .replace(ASSISTANT_EMAIL_PATTERN, REDACTED_EMAIL_PLACEHOLDER)
+      .replace(ASSISTANT_PHONE_PATTERN, REDACTED_PHONE_PLACEHOLDER);
   }
 }

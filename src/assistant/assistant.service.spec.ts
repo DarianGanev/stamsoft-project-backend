@@ -1,17 +1,21 @@
-import {
-  BadRequestException,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 
 import type { RecommendationCandidate } from '../listings/types';
 import { AssistantService } from './assistant.service';
-import { NO_MATCHING_LISTINGS_MESSAGE } from './constants';
+import {
+  DEGRADED_RECOMMENDATIONS_MESSAGE,
+  NO_MATCHING_LISTINGS_MESSAGE,
+} from './constants';
 import type { VehicleNeedsAnalysis } from './types';
 
 describe('AssistantService', () => {
   const needs: VehicleNeedsAnalysis = {
     clarificationQuestion: null,
-    criteria: { maxPrice: 20000, bodyTypes: ['suv'] },
+    criteria: {
+      bodyTypes: ['suv'],
+      budgetCurrency: 'EUR',
+      maxPrice: 20000,
+    },
     needsClarification: false,
     preferences: ['family use', 'winter driving'],
   };
@@ -80,14 +84,14 @@ describe('AssistantService', () => {
       service.recommend({ message: 'Търся семеен автомобил.' }),
     ).resolves.toEqual({
       message: 'Какъв е максималният ви бюджет?',
-      needsClarification: true,
       recommendations: [],
+      status: 'clarifying',
     });
     expect(listingsService.findRecommendationCandidates).not.toHaveBeenCalled();
     expect(recommendationModel.rankCandidates).not.toHaveBeenCalled();
   });
 
-  it('returns a deterministic response when no listings match', async () => {
+  it('returns a completed response when no listings match', async () => {
     const { listingsService, recommendationModel, service } = createService();
     recommendationModel.analyzeNeeds.mockResolvedValue(needs);
     listingsService.findRecommendationCandidates.mockResolvedValue([]);
@@ -96,19 +100,19 @@ describe('AssistantService', () => {
       service.recommend({ message: 'Искам SUV до 20 000 EUR.' }),
     ).resolves.toEqual({
       message: NO_MATCHING_LISTINGS_MESSAGE,
-      needsClarification: false,
       recommendations: [],
+      status: 'completed',
     });
     expect(recommendationModel.rankCandidates).not.toHaveBeenCalled();
   });
 
-  it('returns only unique recommendations backed by database candidates', async () => {
+  it('returns unique database-backed recommendations and valid highlights', async () => {
     const { listingsService, recommendationModel, service } = createService();
     const firstCandidate = candidate('listing-1');
     const secondCandidate = candidate('listing-2', {
-      title: 'Skoda Kodiaq',
       brandName: 'Skoda',
       modelName: 'Kodiaq',
+      title: 'Skoda Kodiaq',
     });
     recommendationModel.analyzeNeeds.mockResolvedValue(needs);
     listingsService.findRecommendationCandidates.mockResolvedValue([
@@ -119,48 +123,56 @@ describe('AssistantService', () => {
       summary: 'Тези две обяви са най-добрият баланс.',
       recommendations: [
         {
+          highlights: ['Система ISOFIX'],
           listingId: 'listing-2',
           reason: 'Просторен и практичен.',
-          tradeOffs: ['По-висок разход.'],
+          tradeoffs: ['По-висок разход.'],
         },
         {
+          highlights: [],
           listingId: 'listing-2',
           reason: 'Дублиран избор.',
-          tradeOffs: [],
+          tradeoffs: [],
         },
         {
+          highlights: [],
           listingId: 'invented-listing',
           reason: 'Невалиден избор.',
-          tradeOffs: [],
+          tradeoffs: [],
         },
         {
+          highlights: ['Измислена екстра'],
           listingId: 'listing-1',
           reason: 'Икономичен хибрид.',
-          tradeOffs: ['По-малък багажник.'],
+          tradeoffs: ['По-малък багажник.'],
         },
       ],
     });
 
-    const result = await service.recommend({
-      history: [{ role: 'assistant', content: '  За какво ще се използва?  ' }],
-      message: '  За семейство с две деца.  ',
-    });
-
-    expect(result).toEqual({
+    await expect(
+      service.recommend({
+        history: [
+          { role: 'assistant', content: '  За какво ще се използва?  ' },
+        ],
+        message: '  За семейство с две деца.  ',
+      }),
+    ).resolves.toEqual({
       message: 'Тези две обяви са най-добрият баланс.',
-      needsClarification: false,
       recommendations: [
         {
+          highlights: ['Система ISOFIX'],
           listing: secondCandidate,
           reason: 'Просторен и практичен.',
-          tradeOffs: ['По-висок разход.'],
+          tradeoffs: ['По-висок разход.'],
         },
         {
+          highlights: [],
           listing: firstCandidate,
           reason: 'Икономичен хибрид.',
-          tradeOffs: ['По-малък багажник.'],
+          tradeoffs: ['По-малък багажник.'],
         },
       ],
+      status: 'completed',
     });
     expect(recommendationModel.analyzeNeeds).toHaveBeenCalledWith([
       { role: 'assistant', content: 'За какво ще се използва?' },
@@ -183,25 +195,109 @@ describe('AssistantService', () => {
     expect(recommendationModel.analyzeNeeds).not.toHaveBeenCalled();
   });
 
-  it('rejects a ranking that contains no real candidate IDs', async () => {
+  it('falls back when Gemini returns no real candidate IDs', async () => {
     const { listingsService, recommendationModel, service } = createService();
+    const firstCandidate = candidate('listing-1');
     recommendationModel.analyzeNeeds.mockResolvedValue(needs);
     listingsService.findRecommendationCandidates.mockResolvedValue([
-      candidate('listing-1'),
+      firstCandidate,
     ]);
     recommendationModel.rankCandidates.mockResolvedValue({
       summary: 'Препоръка.',
       recommendations: [
         {
+          highlights: [],
           listingId: 'invented-listing',
           reason: 'Измислена обява.',
-          tradeOffs: [],
+          tradeoffs: [],
         },
       ],
     });
 
     await expect(
       service.recommend({ message: 'Искам семеен SUV.' }),
-    ).rejects.toThrow(ServiceUnavailableException);
+    ).resolves.toEqual({
+      message: DEGRADED_RECOMMENDATIONS_MESSAGE,
+      recommendations: [
+        {
+          highlights: [],
+          listing: firstCandidate,
+          reason: null,
+          tradeoffs: [],
+        },
+      ],
+      status: 'degraded',
+    });
+  });
+
+  it('falls back when final ranking fails', async () => {
+    const { listingsService, recommendationModel, service } = createService();
+    const firstCandidate = candidate('listing-1');
+    recommendationModel.analyzeNeeds.mockResolvedValue(needs);
+    listingsService.findRecommendationCandidates.mockResolvedValue([
+      firstCandidate,
+    ]);
+    recommendationModel.rankCandidates.mockRejectedValue(
+      new Error('Gemini timeout'),
+    );
+
+    await expect(
+      service.recommend({ message: 'Искам семеен SUV.' }),
+    ).resolves.toMatchObject({
+      recommendations: [{ listing: firstCandidate, reason: null }],
+      status: 'degraded',
+    });
+  });
+
+  it('searches after three clarification questions', async () => {
+    const { listingsService, recommendationModel, service } = createService();
+    recommendationModel.analyzeNeeds.mockResolvedValue({
+      ...needs,
+      clarificationQuestion: 'Имате ли предпочитание за гориво?',
+      needsClarification: true,
+    });
+    listingsService.findRecommendationCandidates.mockResolvedValue([]);
+
+    await expect(
+      service.recommend({
+        history: [
+          { role: 'assistant', content: 'Какъв е бюджетът?' },
+          { role: 'user', content: '20 000 EUR.' },
+          { role: 'assistant', content: 'За какво ще се използва?' },
+          { role: 'user', content: 'За семейство.' },
+          { role: 'assistant', content: 'Каква скоростна кутия?' },
+          { role: 'user', content: 'Без значение.' },
+        ],
+        message: 'Нямам други изисквания.',
+      }),
+    ).resolves.toMatchObject({ status: 'completed' });
+    expect(listingsService.findRecommendationCandidates).toHaveBeenCalledWith(
+      needs.criteria,
+    );
+  });
+
+  it('redacts obvious personal data before sending it to Gemini', async () => {
+    const { recommendationModel, service } = createService();
+    recommendationModel.analyzeNeeds.mockResolvedValue({
+      clarificationQuestion: 'Какъв е бюджетът ви?',
+      criteria: {},
+      needsClarification: true,
+      preferences: [],
+    });
+
+    await service.recommend({
+      history: [
+        {
+          role: 'assistant',
+          content: 'Пишете на seller@example.com.',
+        },
+      ],
+      message: 'Телефонът ми е +359 888 123 456.',
+    });
+
+    expect(recommendationModel.analyzeNeeds).toHaveBeenCalledWith([
+      { role: 'assistant', content: 'Пишете на [email removed].' },
+      { role: 'user', content: 'Телефонът ми е [phone removed].' },
+    ]);
   });
 });
