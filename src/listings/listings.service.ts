@@ -21,6 +21,7 @@ import {
 import { ImageEntity, ListingEntity } from './entities';
 import {
   AdminListListingsInput,
+  Currency,
   Listing,
   ListingImage,
   ListingModerationStatus,
@@ -32,12 +33,16 @@ import { ListingFeaturesService } from './listing-features.service';
 import { LocalImageStorageService } from './local-image-storage.service';
 import {
   ALLOWED_IMAGE_TYPES,
+  BGN_PER_EUR,
+  CURRENCIES,
   DEFAULT_LISTING_STATUS,
+  DEFAULT_RECOMMENDATION_BUDGET_CURRENCY,
   MAX_IMAGE_SIZE_BYTES,
   MAX_IMAGES_PER_LISTING,
   MAX_IMAGES_PER_UPLOAD,
   PUBLISHED_LISTING_STATUS,
   RECOMMENDATION_CANDIDATE_LIMIT,
+  RECOMMENDATION_PRICE_EUR_EXPRESSION,
 } from './constants';
 
 @Injectable()
@@ -153,18 +158,20 @@ export class ListingsService {
       })
       .orderBy('listing.createdAt', 'DESC')
       .take(RECOMMENDATION_CANDIDATE_LIMIT);
+    const budgetCurrency =
+      input.budgetCurrency ?? DEFAULT_RECOMMENDATION_BUDGET_CURRENCY;
 
     this.addFilter(
       queryBuilder,
-      'listing.price >= :minPrice',
-      'minPrice',
-      input.minPrice,
+      `${RECOMMENDATION_PRICE_EUR_EXPRESSION} >= :minPriceEur`,
+      'minPriceEur',
+      this.toEuro(input.minPrice, budgetCurrency),
     );
     this.addFilter(
       queryBuilder,
-      'listing.price <= :maxPrice',
-      'maxPrice',
-      input.maxPrice,
+      `${RECOMMENDATION_PRICE_EUR_EXPRESSION} <= :maxPriceEur`,
+      'maxPriceEur',
+      this.toEuro(input.maxPrice, budgetCurrency),
     );
     this.addFilter(
       queryBuilder,
@@ -911,18 +918,41 @@ export class ListingsService {
   private validateRecommendationCandidateInput(
     input: RecommendationCandidateInput,
   ): void {
+    const numericValues = [
+      input.maxMileage,
+      input.maxPrice,
+      input.minPrice,
+      input.minYear,
+    ].filter((value): value is number => value !== undefined);
+
     if (
+      numericValues.some((value) => !Number.isFinite(value)) ||
       (input.minPrice !== undefined && input.minPrice < 0) ||
       (input.maxPrice !== undefined && input.maxPrice < 0) ||
       (input.maxMileage !== undefined && input.maxMileage < 0) ||
       (input.minYear !== undefined &&
-        (input.minYear < 1886 || input.minYear > 2100)) ||
+        (!Number.isInteger(input.minYear) ||
+          input.minYear < 1886 ||
+          input.minYear > 2100)) ||
       (input.minPrice !== undefined &&
         input.maxPrice !== undefined &&
-        input.minPrice > input.maxPrice)
+        input.minPrice > input.maxPrice) ||
+      (input.budgetCurrency !== undefined &&
+        !CURRENCIES.includes(input.budgetCurrency))
     ) {
       throw new BadRequestException('Invalid recommendation criteria.');
     }
+  }
+
+  private toEuro(
+    value: number | undefined,
+    currency: Currency,
+  ): number | undefined {
+    if (value === undefined || currency === 'EUR') {
+      return value;
+    }
+
+    return value / BGN_PER_EUR;
   }
 
   private toListingImage(image: ImageEntity): ListingImage {
