@@ -1,0 +1,1 @@
+export { IsGreaterThanOrEqualToPropertyConstraint } from './is-greater-than-or-equal-to-property.validator';

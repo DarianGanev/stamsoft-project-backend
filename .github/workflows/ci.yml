@@ -1,0 +1,70 @@
+name: Backend CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+
+jobs:
+  build:
+    name: Lint, migrate, test, and build
+    runs-on: ubuntu-latest
+
+    services:
+      postgre:
+        image: postgres:16
+        env:
+          POSTGRES_DB: stamsoft
+          POSTGRES_USER: stamsoft_user
+          POSTGRES_PASSWORD: stamsoft_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U stamsoft_user -d stamsoft"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://stamsoft_user:stamsoft_password@localhost:5432/stamsoft
+      API_URL: http://localhost:3001
+      FRONTEND_URL: http://localhost:3000
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      SMTP_HOST: smtp.example.com
+      SMTP_PORT: 587
+      SMTP_USER: your_username
+      SMTP_PASS: your_password
+      SMTP_FROM: "CarAuction <no-reply@carauction.local>"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run migrations
+        run: npm run migration:run
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build

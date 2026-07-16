@@ -1,0 +1,31 @@
+export const NOTIFICATION_TYPES = [
+  'listing_changed',
+  'listing_photos_changed',
+  'listing_unavailable',
+  'listing_deleted',
+] as const;
+
+export const LISTING_NOTIFICATION_FIELDS = [
+  'title',
+  'brand',
+  'model',
+  'bodyType',
+  'condition',
+  'description',
+  'year',
+  'mileageKm',
+  'powerHp',
+  'engineLiters',
+  'emissionStandard',
+  'fuel',
+  'transmission',
+  'location',
+  'contactName',
+  'contactPhone',
+  'contactEmail',
+  'price',
+  'currency',
+  'features',
+  'photos',
+  'status',
+] as const;

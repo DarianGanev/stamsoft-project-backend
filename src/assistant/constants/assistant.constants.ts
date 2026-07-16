@@ -1,0 +1,52 @@
+import type { AssistantMessageRole } from '../types';
+
+export const ASSISTANT_MESSAGE_ROLES = [
+  'assistant',
+  'user',
+] as const satisfies readonly AssistantMessageRole[];
+export const ASSISTANT_THROTTLER_OPTIONS = [
+  {
+    name: 'assistant-minute',
+    limit: 5,
+    ttl: 60_000,
+  },
+  {
+    name: 'assistant-day',
+    limit: 50,
+    ttl: 86_400_000,
+  },
+] as const;
+export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash-lite';
+export const DEFAULT_GEMINI_REQUEST_TIMEOUT_MS = 15_000;
+export const MAX_GEMINI_REQUEST_TIMEOUT_MS = 30_000;
+export const MIN_GEMINI_REQUEST_TIMEOUT_MS = 1_000;
+export const MAX_ASSISTANT_CLARIFICATION_QUESTIONS = 3;
+export const MAX_ASSISTANT_HIGHLIGHTS = 4;
+export const MAX_ASSISTANT_HISTORY_MESSAGES = 8;
+export const MAX_ASSISTANT_MESSAGE_LENGTH = 1_000;
+export const MAX_ASSISTANT_PREFERENCES = 10;
+export const MAX_ASSISTANT_RECOMMENDATIONS = 3;
+export const MAX_ASSISTANT_TRADEOFFS = 3;
+export const REDACTED_EMAIL_PLACEHOLDER = '[email removed]';
+export const REDACTED_PHONE_PLACEHOLDER = '[phone removed]';
+export const ASSISTANT_EMAIL_PATTERN =
+  /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+export const ASSISTANT_PHONE_PATTERN = /\+?\d[\d\s().-]{6,}\d/g;
+export const ASSISTANT_RESPONSE_MESSAGES = {
+  bg: {
+    budgetQuestion: 'Какъв е максималният ви бюджет и в каква валута?',
+    degraded:
+      'Намерих подходящи обяви, но временно не мога да ги сравня подробно.',
+    noMatchingListings:
+      'В момента няма публикувани обяви, които отговарят на тези изисквания. Опитайте да разширите един или повече от критериите.',
+  },
+  en: {
+    budgetQuestion: 'What is your maximum budget and preferred currency?',
+    degraded:
+      'I found suitable listings, but I cannot compare them in detail right now.',
+    noMatchingListings:
+      'No published listings currently match these requirements. Try relaxing one or more filters.',
+  },
+} as const;
+export const BULGARIAN_TEXT_PATTERN = /[А-Яа-я]/;
+export const RECOMMENDATION_MODEL = Symbol('RECOMMENDATION_MODEL');
