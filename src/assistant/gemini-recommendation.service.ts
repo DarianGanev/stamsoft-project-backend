@@ -189,17 +189,13 @@ export class GeminiRecommendationService implements RecommendationModel {
       );
     }
 
-    const needsClarification = this.asBoolean(record.needsClarification);
+    const requestedClarification = this.asBoolean(record.needsClarification);
     const clarificationQuestion =
       record.clarificationQuestion === null
         ? null
         : this.asNonEmptyString(record.clarificationQuestion);
-
-    if (needsClarification !== (clarificationQuestion !== null)) {
-      throw new ServiceUnavailableException(
-        'AI recommendation service returned an invalid response.',
-      );
-    }
+    const needsClarification =
+      requestedClarification && clarificationQuestion !== null;
 
     return {
       clarificationQuestion,

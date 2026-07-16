@@ -1,14 +1,12 @@
-import { Transform, TransformFnParams } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
+import { trimString } from '../../common/transforms/trim-string.transform';
+import type { UpdateUserProfileInput } from '../../users/types';
 import {
   PROFILE_NAME_MAX_LENGTH,
   PROFILE_PHONE_MAX_LENGTH,
 } from '../constants';
-import type { UpdateUserProfileInput } from '../../users/types';
-
-const trimString = ({ value }: TransformFnParams): unknown =>
-  typeof value === 'string' ? value.trim() : value;
 
 export class UpdateProfileDto implements UpdateUserProfileInput {
   @IsOptional()
